@@ -2,6 +2,7 @@
 
 import { Message } from '@/lib/db';
 import { useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 
 interface ToolCall {
   name: string;
@@ -31,7 +32,7 @@ export default function MessageList({
   }, [messages, streamingMessage]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+    <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 pb-24">
       {messages.length === 0 && !streamingMessage ? (
         <div className="h-full flex items-center justify-center">
           <div className="text-center text-gray-500">
@@ -70,8 +71,8 @@ export default function MessageList({
                       {message.content}
                     </div>
                   ) : (
-                    <div className="whitespace-pre-wrap break-words">
-                      {message.content}
+                    <div className="prose prose-invert max-w-none break-words prose-p:my-2 prose-headings:my-2 prose-code:text-amber-300 prose-code:bg-gray-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-800 prose-pre:p-3 prose-pre:rounded">
+                      <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
                   )}
                 </div>
@@ -105,8 +106,8 @@ export default function MessageList({
           {streamingMessage && (
             <div className="flex justify-center mt-4">
               <div className="w-[60%] text-gray-100 text-left">
-                <div className="whitespace-pre-wrap break-words">
-                  {streamingMessage}
+                <div className="prose prose-invert max-w-none break-words prose-p:my-2 prose-headings:my-2 prose-code:text-amber-300 prose-code:bg-gray-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-800 prose-pre:p-3 prose-pre:rounded">
+                  <ReactMarkdown>{streamingMessage}</ReactMarkdown>
                   {isStreaming && (
                     <span className="inline-block w-1 h-4 ml-1 bg-gray-400 animate-pulse" />
                   )}
