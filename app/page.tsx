@@ -96,7 +96,7 @@ export default function Home() {
             <p className="text-lg mb-6">Create a new chat to get started</p>
             <button
               onClick={handleNewChat}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-medium"
+              className="px-6 py-3 bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors duration-200 font-medium"
             >
               Create New Chat
             </button>

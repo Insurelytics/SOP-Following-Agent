@@ -159,7 +159,7 @@ export default function ChatInterface({
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col h-full relative">
       {/* Header */}
       <div className="border-b border-gray-800 bg-[#1a1a1a] px-6 py-4">
         <div className="flex items-center justify-between">
@@ -169,7 +169,7 @@ export default function ChatInterface({
             <select
               value={model}
               onChange={(e) => onModelChange(e.target.value)}
-              className="bg-gray-800 text-gray-100 px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+              className="bg-gray-800 text-gray-100 px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-700 text-sm"
             >
               <option value="gpt-5-nano">GPT-5-nano</option>
               <option value="gpt-5-mini">GPT-5-mini</option>

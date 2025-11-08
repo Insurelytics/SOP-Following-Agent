@@ -21,7 +21,7 @@ export default function Sidebar({
       <div className="p-4 border-b border-gray-800">
         <button
           onClick={onNewChat}
-          className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-medium"
+          className="w-full px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors duration-200 font-medium"
         >
           + New Chat
         </button>

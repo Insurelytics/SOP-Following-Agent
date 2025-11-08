@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent, useRef, useEffect } from 'react';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -9,6 +9,8 @@ interface ChatInputProps {
 
 export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   const [message, setMessage] = useState('');
+  const [isMultiLine, setIsMultiLine] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSend = () => {
     if (message.trim() && !disabled) {
@@ -24,37 +26,44 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
     }
   };
 
+  const handleTextareaInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    const target = e.target as HTMLTextAreaElement;
+    target.style.height = 'auto';
+    const newHeight = Math.min(target.scrollHeight, 200);
+    target.style.height = `${newHeight}px`;
+    // Check if it's more than one line (24px is single line height)
+    setIsMultiLine(newHeight > 24);
+  };
+
   return (
-    <div className="border-t border-gray-800 bg-[#1a1a1a] p-4">
-      <div className="flex items-end gap-2">
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message... (Shift+Enter for new line)"
-          disabled={disabled}
-          className="flex-1 bg-gray-800 text-gray-100 rounded-lg px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          rows={1}
-          style={{
-            minHeight: '48px',
-            maxHeight: '200px',
-          }}
-          onInput={(e) => {
-            const target = e.target as HTMLTextAreaElement;
-            target.style.height = 'auto';
-            target.style.height = `${Math.min(target.scrollHeight, 200)}px`;
-          }}
-        />
-        <button
-          onClick={handleSend}
-          disabled={disabled || !message.trim()}
-          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors duration-200 font-medium"
-        >
-          Send
-        </button>
-      </div>
-      <div className="mt-2 text-xs text-gray-500">
-        Press Enter to send, Shift+Enter for new line
+    <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center">
+      <div className="w-[60%] flex flex-col">
+        <div className={`flex ${isMultiLine ? 'items-end' : 'items-center'} bg-gray-800 rounded-[30px] px-4 py-3 focus-within:ring-2 focus-within:ring-green-700 transition-all duration-200`}>
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message..."
+            disabled={disabled}
+            className="flex-1 bg-transparent text-gray-100 resize-none focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            rows={1}
+            style={{
+              minHeight: '24px',
+              maxHeight: '200px',
+            }}
+            onInput={handleTextareaInput}
+          />
+          <button
+            onClick={handleSend}
+            disabled={disabled || !message.trim()}
+            className="ml-2 p-2 rounded-full bg-green-700 hover:bg-green-800 disabled:bg-gray-600 disabled:cursor-not-allowed text-white transition-colors duration-200 flex-shrink-0 flex items-center justify-center"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg" className="icon">
+              <path d="M8.99992 16V6.41407L5.70696 9.70704C5.31643 10.0976 4.68342 10.0976 4.29289 9.70704C3.90237 9.31652 3.90237 8.6835 4.29289 8.29298L9.29289 3.29298L9.36907 3.22462C9.76184 2.90427 10.3408 2.92686 10.707 3.29298L15.707 8.29298L15.7753 8.36915C16.0957 8.76192 16.0731 9.34092 15.707 9.70704C15.3408 10.0732 14.7618 10.0958 14.3691 9.7754L14.2929 9.70704L10.9999 6.41407V16C10.9999 16.5523 10.5522 17 9.99992 17C9.44764 17 8.99992 16.5523 8.99992 16Z"></path>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

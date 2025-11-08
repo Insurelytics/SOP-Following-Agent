@@ -36,7 +36,7 @@ export default function MessageList({
         <div className="h-full flex items-center justify-center">
           <div className="text-center text-gray-500">
             <p className="text-lg mb-2">Start a conversation</p>
-            <p className="text-sm">Send a message to begin chatting with GPT</p>
+            <p className="text-sm">Send a message to begin chatting with AI</p>
           </div>
         </div>
       ) : (
@@ -44,48 +44,47 @@ export default function MessageList({
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex ${
-                message.role === 'user' ? 'justify-end' : 'justify-start'
+              className={`flex mt-4 ${
+                message.role === 'user' ? 'justify-center' : 'justify-center'
               }`}
             >
-              <div
-                className={`max-w-[80%] rounded-lg px-4 py-3 ${
-                  message.role === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : message.role === 'assistant'
-                    ? 'bg-gray-800 text-gray-100'
-                    : 'bg-gray-700 text-gray-300 text-sm'
-                }`}
-              >
-                {message.role === 'tool' ? (
-                  <div className="font-mono text-xs">
-                    <span className="text-gray-400">Tool result: </span>
-                    {message.content}
+              {message.role === 'user' ? (
+                <div className="w-[60%] flex justify-end">
+                  <div className="max-w-[70%] rounded-[20px] px-4 py-3 bg-[#00692a] text-white">
+                    <div className="whitespace-pre-wrap break-words">
+                      {message.content}
+                    </div>
                   </div>
-                ) : (
-                  <div className="whitespace-pre-wrap break-words">
-                    {message.content}
-                  </div>
-                )}
+                </div>
+              ) : (
                 <div
-                  className={`text-xs mt-1 ${
-                    message.role === 'user'
-                      ? 'text-blue-200'
-                      : 'text-gray-500'
+                  className={`${
+                    message.role === 'assistant'
+                      ? 'w-[60%] text-gray-100 text-left'
+                      : 'w-[60%] rounded-lg px-4 py-3 bg-gray-700 text-gray-300 text-sm'
                   }`}
                 >
-                  {new Date(message.created_at).toLocaleTimeString()}
+                  {message.role === 'tool' ? (
+                    <div className="font-mono text-xs">
+                      <span className="text-gray-400">Tool result: </span>
+                      {message.content}
+                    </div>
+                  ) : (
+                    <div className="whitespace-pre-wrap break-words">
+                      {message.content}
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
           ))}
 
           {/* Thinking state */}
           {isThinking && !currentToolCall && !streamingMessage && (
-            <div className="flex justify-start">
-              <div className="max-w-[80%] rounded-lg px-4 py-3 bg-gray-800 text-gray-100">
+            <div className="flex justify-center mt-4">
+              <div className="w-[60%] text-left">
                 <span className="text-sm inline-block bg-gradient-to-r from-gray-500 via-blue-200 to-gray-500 bg-[length:200%_auto] animate-shimmer-text bg-clip-text text-transparent font-semibold">
-                  thinking
+                  Thinking...
                 </span>
               </div>
             </div>
@@ -93,8 +92,8 @@ export default function MessageList({
 
           {/* Tool call placeholder */}
           {currentToolCall && !streamingMessage && (
-            <div className="flex justify-start">
-              <div className="max-w-[80%] rounded-lg px-4 py-3 bg-gray-800 text-gray-100">
+            <div className="flex justify-center mt-4">
+              <div className="w-[60%] text-left">
                 <span className="text-sm inline-block bg-gradient-to-r from-gray-500 via-blue-200 to-gray-500 bg-[length:200%_auto] animate-shimmer-text bg-clip-text text-transparent font-semibold">
                   Calling {currentToolCall.name} tool
                 </span>
@@ -104,8 +103,8 @@ export default function MessageList({
 
           {/* Streaming message */}
           {streamingMessage && (
-            <div className="flex justify-start">
-              <div className="max-w-[80%] rounded-lg px-4 py-3 bg-gray-800 text-gray-100">
+            <div className="flex justify-center mt-4">
+              <div className="w-[60%] text-gray-100 text-left">
                 <div className="whitespace-pre-wrap break-words">
                   {streamingMessage}
                   {isStreaming && (
