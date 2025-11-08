@@ -1,12 +1,40 @@
+/**
+ * OpenAI client and tool configuration
+ * Handles initialization, tool definitions, and tool execution
+ */
+
 import OpenAI from 'openai';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions';
 
-// Initialize OpenAI client
+// ============================================================================
+// Client Initialization
+// ============================================================================
+
+/**
+ * OpenAI API client instance
+ * Configured with API key from environment
+ */
 export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Define the add function tool
+// ============================================================================
+// Model Configuration
+// ============================================================================
+
+/**
+ * Get model from environment variable, default to gpt-5-nano
+ */
+export const DEFAULT_MODEL = process.env.MODEL || 'gpt-5-nano';
+console.log('DEFAULT_MODEL', DEFAULT_MODEL);
+
+// ============================================================================
+// Tool Definitions
+// ============================================================================
+
+/**
+ * Addition tool that adds two numbers
+ */
 export const addTool: ChatCompletionTool = {
   type: 'function',
   function: {
@@ -29,12 +57,27 @@ export const addTool: ChatCompletionTool = {
   },
 };
 
-// Tool implementations
-export function executeAddTool(a: number, b: number): number {
+// ============================================================================
+// Tool Implementations
+// ============================================================================
+
+/**
+ * Executes the add tool
+ * @param a - First number
+ * @param b - Second number
+ * @returns The sum of a and b
+ */
+function executeAddTool(a: number, b: number): number {
   return a + b;
 }
 
-// Helper to execute any tool by name
+/**
+ * Dispatcher to execute any tool by name
+ * @param toolName - Name of the tool to execute
+ * @param args - Arguments to pass to the tool
+ * @returns Result of tool execution
+ * @throws Error if tool name is unknown
+ */
 export function executeTool(toolName: string, args: any): any {
   switch (toolName) {
     case 'add':
@@ -44,13 +87,16 @@ export function executeTool(toolName: string, args: any): any {
   }
 }
 
-// Get model from environment variable, default to gpt-5-nano
-export const DEFAULT_MODEL = process.env.MODEL || 'gpt-5-nano';
-console.log('DEFAULT_MODEL', DEFAULT_MODEL);
-// Type for conversation messages
+// ============================================================================
+// Types
+// ============================================================================
+
+/**
+ * Type for conversation messages with tool support
+ */
 export interface ConversationMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string;
+  content: string | null;
   name?: string;
   tool_calls?: Array<{
     id: string;
@@ -62,4 +108,3 @@ export interface ConversationMessage {
   }>;
   tool_call_id?: string;
 }
-

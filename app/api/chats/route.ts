@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getOrCreateUser,
-  createChat,
-  getChatsForUser,
-} from '@/lib/db';
-import { DEFAULT_MODEL } from '@/lib/openai';
+import { getUserChats, createNewChat } from '@/lib/services/chat';
 
-// GET /api/chats - Get all chats for dev-test user
+const DEFAULT_USERNAME = 'dev-test';
+
+/**
+ * GET /api/chats - Get all chats for the current user
+ * Returns an array of chats ordered by creation date
+ */
 export async function GET() {
   try {
-    const user = getOrCreateUser('dev-test');
-    const chats = getChatsForUser(user.id);
-    
-    // Ensure chats is always an array
-    return NextResponse.json(Array.isArray(chats) ? chats : []);
+    const chats = getUserChats(DEFAULT_USERNAME);
+    return NextResponse.json(chats);
   } catch (error) {
     console.error('Error fetching chats:', error);
     // Return empty array on error to prevent client-side crashes
@@ -21,19 +18,17 @@ export async function GET() {
   }
 }
 
-// POST /api/chats - Create a new chat
+/**
+ * POST /api/chats - Create a new chat for the current user
+ * Returns the newly created chat object
+ */
 export async function POST(request: NextRequest) {
   try {
-    const user = getOrCreateUser('dev-test');
-    const chat = createChat(user.id, DEFAULT_MODEL);
-    
+    const chat = createNewChat(DEFAULT_USERNAME);
     return NextResponse.json(chat, { status: 201 });
   } catch (error) {
     console.error('Error creating chat:', error);
-    return NextResponse.json(
-      { error: 'Failed to create chat' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create chat' }, { status: 500 });
   }
 }
 
