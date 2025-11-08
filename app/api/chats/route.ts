@@ -4,6 +4,7 @@ import {
   createChat,
   getChatsForUser,
 } from '@/lib/db';
+import { DEFAULT_MODEL } from '@/lib/openai';
 
 // GET /api/chats - Get all chats for dev-test user
 export async function GET() {
@@ -23,18 +24,8 @@ export async function GET() {
 // POST /api/chats - Create a new chat
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { model } = body;
-
-    if (!model) {
-      return NextResponse.json(
-        { error: 'Model is required' },
-        { status: 400 }
-      );
-    }
-
     const user = getOrCreateUser('dev-test');
-    const chat = createChat(user.id, model);
+    const chat = createChat(user.id, DEFAULT_MODEL);
     
     return NextResponse.json(chat, { status: 201 });
   } catch (error) {

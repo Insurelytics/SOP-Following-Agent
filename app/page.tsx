@@ -8,7 +8,6 @@ import { Chat } from '@/lib/db';
 export default function Home() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [currentChatId, setCurrentChatId] = useState<number | null>(null);
-  const [currentModel, setCurrentModel] = useState('gpt-5-nano');
   const [isLoading, setIsLoading] = useState(true);
 
   // Load chats on mount
@@ -26,7 +25,6 @@ export default function Home() {
       // Auto-select the most recent chat
       if (data.length > 0 && !currentChatId) {
         setCurrentChatId(data[0].id);
-        setCurrentModel(data[0].model);
       }
     } catch (error) {
       console.error('Error loading chats:', error);
@@ -40,7 +38,6 @@ export default function Home() {
       const response = await fetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: currentModel }),
       });
 
       if (!response.ok) {
@@ -57,14 +54,6 @@ export default function Home() {
 
   const handleSelectChat = (chatId: number) => {
     setCurrentChatId(chatId);
-    const chat = chats.find((c) => c.id === chatId);
-    if (chat) {
-      setCurrentModel(chat.model);
-    }
-  };
-
-  const handleModelChange = (model: string) => {
-    setCurrentModel(model);
   };
 
   if (isLoading) {
@@ -86,8 +75,6 @@ export default function Home() {
       {currentChatId ? (
         <ChatInterface
           chatId={currentChatId}
-          model={currentModel}
-          onModelChange={handleModelChange}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-500">

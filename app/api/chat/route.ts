@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { openai, addTool, executeTool } from '@/lib/openai';
+import { openai, addTool, executeTool, DEFAULT_MODEL } from '@/lib/openai';
 import { saveMessage, getMessages, getChat } from '@/lib/db';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
@@ -7,11 +7,13 @@ import type { ChatCompletionMessageParam } from 'openai/resources/chat/completio
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { chatId, message, model } = body;
+    const { chatId, message } = body;
+    const model = DEFAULT_MODEL;
+    console.log('model', model);
 
-    if (!chatId || !message || !model) {
+    if (!chatId || !message) {
       return new Response(
-        JSON.stringify({ error: 'chatId, message, and model are required' }),
+        JSON.stringify({ error: 'chatId and message are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -34,6 +36,19 @@ export async function POST(request: NextRequest) {
       role: msg.role as 'user' | 'assistant' | 'system',
       content: msg.content,
     }));
+
+    // Prepend system prompt
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    const systemPrompt = `You are ${model}. Today's date is ${currentDate}.  Your role is to help the user with their questions and tasks.`;
+    conversationMessages.unshift({
+      role: 'system',
+      content: systemPrompt,
+    } as ChatCompletionMessageParam);
 
     // Create a ReadableStream for Server-Sent Events
     const encoder = new TextEncoder();

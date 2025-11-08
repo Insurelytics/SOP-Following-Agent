@@ -7,8 +7,6 @@ import ChatInput from './ChatInput';
 
 interface ChatInterfaceProps {
   chatId: number;
-  model: string;
-  onModelChange: (model: string) => void;
 }
 
 interface ToolCall {
@@ -18,8 +16,6 @@ interface ToolCall {
 
 export default function ChatInterface({
   chatId,
-  model,
-  onModelChange,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -73,7 +69,7 @@ export default function ChatInterface({
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId, message, model }),
+        body: JSON.stringify({ chatId, message }),
       });
 
       if (!response.ok) {
@@ -162,20 +158,7 @@ export default function ChatInterface({
     <div className="flex-1 flex flex-col h-full relative">
       {/* Header */}
       <div className="border-b border-gray-800 bg-[#1a1a1a] px-6 py-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Chat #{chatId}</h2>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-400">Model:</label>
-            <select
-              value={model}
-              onChange={(e) => onModelChange(e.target.value)}
-              className="bg-gray-800 text-gray-100 px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-700 text-sm"
-            >
-              <option value="gpt-5-nano">GPT-5-nano</option>
-              <option value="gpt-5-mini">GPT-5-mini</option>
-            </select>
-          </div>
-        </div>
+        <h2 className="text-lg font-semibold text-white">Chat #{chatId}</h2>
       </div>
 
       {/* Messages */}

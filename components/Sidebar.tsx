@@ -49,14 +49,9 @@ export default function Sidebar({
                   <span className="text-sm font-medium truncate">
                     {chat.title || `Chat ${chat.id}`}
                   </span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs px-2 py-0.5 bg-gray-700 rounded text-gray-400">
-                      {chat.model}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {new Date(chat.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
+                  <span className="text-xs text-gray-500 mt-1">
+                    {new Date(chat.created_at).toLocaleDateString()}
+                  </span>
                 </div>
               </button>
             ))}

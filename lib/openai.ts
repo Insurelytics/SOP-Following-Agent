@@ -44,14 +44,9 @@ export function executeTool(toolName: string, args: any): any {
   }
 }
 
-// Available models
-export const MODELS = {
-  NANO: 'gpt-5-nano',
-  MINI: 'gpt-5-mini',
-} as const;
-
-export type ModelType = typeof MODELS[keyof typeof MODELS];
-
+// Get model from environment variable, default to gpt-5-nano
+export const DEFAULT_MODEL = process.env.MODEL || 'gpt-5-nano';
+console.log('DEFAULT_MODEL', DEFAULT_MODEL);
 // Type for conversation messages
 export interface ConversationMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
