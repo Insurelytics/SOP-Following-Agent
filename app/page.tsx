@@ -58,14 +58,14 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[#0f0f0f]">
-        <div className="text-gray-400">Loading...</div>
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-foreground-muted">Loading...</div>
       </div>
     );
   }
 
   return (
-    <main className="h-screen flex bg-[#0f0f0f] text-white overflow-hidden">
+    <main className="h-screen flex bg-background text-foreground overflow-hidden">
       <Sidebar
         chats={chats}
         currentChatId={currentChatId}
@@ -77,13 +77,13 @@ export default function Home() {
           chatId={currentChatId}
         />
       ) : (
-        <div className="flex-1 flex items-center justify-center text-gray-500">
+        <div className="flex-1 flex items-center justify-center text-foreground-muted">
           <div className="text-center">
-            <h1 className="text-3xl font-bold mb-4">GPT-5 Chat Interface</h1>
+            <h1 className="text-3xl font-bold mb-4 text-foreground">GPT-5 Chat Interface</h1>
             <p className="text-lg mb-6">Create a new chat to get started</p>
             <button
               onClick={handleNewChat}
-              className="px-6 py-3 bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors duration-200 font-medium"
+              className="px-6 py-3 bg-action hover:bg-primary-hover text-white rounded-lg transition-colors duration-200 font-medium"
             >
               Create New Chat
             </button>

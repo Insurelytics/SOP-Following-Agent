@@ -41,10 +41,10 @@ export default function MessageList({
     (messages.length > 0 && messages[messages.length - 1].role === 'assistant');
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 pb-24">
+    <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 pb-24 bg-background">
       {messages.length === 0 && !streamingMessage ? (
         <div className="h-full flex items-center justify-center">
-          <div className="text-center text-gray-500">
+          <div className="text-center text-foreground-muted">
             <p className="text-lg mb-2">Start a conversation</p>
             <p className="text-sm">Send a message to begin chatting with AI</p>
           </div>
@@ -62,7 +62,7 @@ export default function MessageList({
             >
               {message.role === 'user' ? (
                 <div className="w-[60%] flex justify-end">
-                  <div className="max-w-[70%] rounded-[20px] px-4 py-3 bg-[#00692a] text-white">
+                  <div className="max-w-[70%] rounded-[20px] px-4 py-3 bg-message-user-bg text-white">
                     <div className="whitespace-pre-wrap break-words">
                       {message.content}
                     </div>
@@ -72,17 +72,17 @@ export default function MessageList({
                 <div
                   className={`${
                     message.role === 'assistant'
-                      ? 'w-[60%] text-gray-100 text-left'
-                      : 'w-[60%] rounded-lg px-4 py-3 bg-gray-700 text-gray-300 text-sm'
+                      ? 'w-[60%] text-foreground text-left'
+                      : 'w-[60%] rounded-lg px-4 py-3 bg-background-tertiary text-foreground-muted text-sm'
                   }`}
                 >
                   {message.role === 'tool' ? (
                     <div className="font-mono text-xs">
-                      <span className="text-gray-400">Tool result: </span>
+                      <span className="text-foreground-muted">Tool result: </span>
                       {message.content}
                     </div>
                   ) : (
-                    <div className="prose prose-invert max-w-none break-words prose-p:my-2 prose-headings:my-2 prose-code:text-amber-300 prose-code:bg-gray-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-800 prose-pre:p-3 prose-pre:rounded">
+                    <div className="max-w-none break-words prose prose-sm sm:prose-base lg:prose-lg prose-headings:my-2 prose-p:my-2 prose-li:my-0 prose-code:bg-background-tertiary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background-tertiary prose-pre:p-3 prose-pre:rounded dark:prose-invert">
                       <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
                   )}
@@ -117,11 +117,11 @@ export default function MessageList({
           {/* Streaming message */}
           {streamingMessage && (
             <div className="flex justify-center mt-4">
-              <div className="w-[60%] text-gray-100 text-left">
-                <div className="prose prose-invert max-w-none break-words prose-p:my-2 prose-headings:my-2 prose-code:text-amber-300 prose-code:bg-gray-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-800 prose-pre:p-3 prose-pre:rounded">
+              <div className="w-[60%] text-foreground text-left">
+                <div className="max-w-none break-words prose prose-sm sm:prose-base lg:prose-lg prose-headings:my-2 prose-p:my-2 prose-li:my-0 prose-code:bg-background-tertiary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background-tertiary prose-pre:p-3 prose-pre:rounded dark:prose-invert">
                   <ReactMarkdown>{streamingMessage}</ReactMarkdown>
                   {isStreaming && (
-                    <span className="inline-block w-1 h-4 ml-1 bg-gray-400 animate-pulse" />
+                    <span className="inline-block w-1 h-4 ml-1 bg-foreground-muted animate-pulse" />
                   )}
                 </div>
               </div>

@@ -3,8 +3,37 @@
 @tailwind utilities;
 
 :root {
+  /* Primary colors */
+  --primary: #303030;
+  --primary-hover: #404040;
+  --action-color: #303030;
+  
+  /* Backgrounds */
   --background: #0f0f0f;
+  --background-secondary: #1a1a1a;
+  --background-tertiary: #2a2a2a;
+  
+  /* Text colors */
   --foreground: #ededed;
+  --foreground-muted: #a0a0a0;
+  --foreground-muted-hover: #c0c0c0;
+  
+  /* Borders */
+  --border: #333333;
+  
+  /* Input/Form */
+  --input: #1a1a1a;
+  --input-border: #333333;
+  --input-focus: #404040;
+  
+  /* Messages */
+  --message-user-bg: #303030;
+  --message-assistant-text: #d1d5db;
+  
+  /* UI Elements */
+  --sidebar-bg: #1a1a1a;
+  --button-bg: #303030;
+  --button-hover-bg: #404040;
 }
 
 body {
@@ -57,5 +86,59 @@ body,
 
 *:hover {
   scrollbar-color: #555555 transparent;
+}
+
+/* Light mode prose styles - ensure proper rendering in light theme */
+@media (prefers-color-scheme: light) {
+  :where(.prose):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground);
+  }
+
+  :where(.prose p):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground);
+  }
+
+  :where(.prose strong):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground);
+  }
+
+  :where(.prose em):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground);
+  }
+
+  :where(.prose a):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--primary);
+  }
+
+  :where(.prose h1):not(:where([class~='not-prose'], [class~='not-prose'] *)),
+  :where(.prose h2):not(:where([class~='not-prose'], [class~='not-prose'] *)),
+  :where(.prose h3):not(:where([class~='not-prose'], [class~='not-prose'] *)),
+  :where(.prose h4):not(:where([class~='not-prose'], [class~='not-prose'] *)),
+  :where(.prose h5):not(:where([class~='not-prose'], [class~='not-prose'] *)),
+  :where(.prose h6):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground);
+  }
+
+  :where(.prose ul):not(:where([class~='not-prose'], [class~='not-prose'] *)),
+  :where(.prose ol):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground);
+  }
+
+  :where(.prose li):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground);
+  }
+
+  :where(.prose code):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground);
+  }
+
+  :where(.prose pre):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground);
+  }
+
+  :where(.prose blockquote):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground-muted);
+    border-color: var(--border);
+  }
 }
 

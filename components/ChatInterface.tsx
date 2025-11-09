@@ -145,7 +145,7 @@ export default function ChatInterface({
 
   if (!chatId) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-500">
+      <div className="flex-1 flex items-center justify-center text-foreground-muted bg-background">
         <div className="text-center">
           <p className="text-lg mb-2">No chat selected</p>
           <p className="text-sm">Create a new chat or select an existing one</p>
@@ -157,14 +157,14 @@ export default function ChatInterface({
   return (
     <div className="flex-1 flex flex-col h-full relative">
       {/* Header */}
-      <div className="border-b border-gray-800 bg-[#1a1a1a] px-6 py-4">
-        <h2 className="text-lg font-semibold text-white">Chat #{chatId}</h2>
+      <div className="border-b border-border bg-background-secondary px-6 py-4">
+        <h2 className="text-lg font-semibold text-foreground">Chat #{chatId}</h2>
       </div>
 
       {/* Messages */}
       {isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-gray-500">Loading messages...</div>
+        <div className="flex-1 flex items-center justify-center bg-background">
+          <div className="text-foreground-muted">Loading messages...</div>
         </div>
       ) : (
         <MessageList
