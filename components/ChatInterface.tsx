@@ -168,12 +168,11 @@ export default function ChatInterface({
         </div>
       ) : (
         <MessageList
-          messages={messages}
-          streamingMessage={streamingMessage}
-          isStreaming={isStreaming}
-          currentToolCall={currentToolCall}
-          isThinking={isThinking}
-        />
+            messages={messages}
+            streamingMessage={streamingMessage}
+            isStreaming={isStreaming}
+            currentToolCall={currentToolCall}
+            isThinking={isThinking} chatId={0}        />
       )}
 
       {/* Input */}

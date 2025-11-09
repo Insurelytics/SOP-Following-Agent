@@ -15,6 +15,7 @@ interface MessageListProps {
   isStreaming?: boolean;
   currentToolCall?: ToolCall | null;
   isThinking?: boolean;
+  chatId: number;
 }
 
 export default function MessageList({
@@ -23,13 +24,21 @@ export default function MessageList({
   isStreaming,
   currentToolCall,
   isThinking,
+  chatId,
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Scroll to bottom when first entering a chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamingMessage]);
+  }, [chatId]);
+
+  // Determine if the last message is from the assistant
+  const isLastMessageAI = 
+    !!streamingMessage ||
+    isThinking ||
+    !!currentToolCall ||
+    (messages.length > 0 && messages[messages.length - 1].role === 'assistant');
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 pb-24">
@@ -42,7 +51,9 @@ export default function MessageList({
         </div>
       ) : (
         <>
-          {messages.map((message) => (
+          {messages.map((message, index) => {
+            
+            return (
             <div
               key={message.id}
               className={`flex mt-4 ${
@@ -78,7 +89,8 @@ export default function MessageList({
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
 
           {/* Thinking state */}
           {isThinking && !currentToolCall && !streamingMessage && (
