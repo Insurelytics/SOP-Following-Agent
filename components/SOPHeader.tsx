@@ -1,133 +1,106 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { SOP } from '@/lib/types/sop';
 import type { SOPRun } from '@/lib/types/sop';
-
-interface SOPData {
-  sop: SOP;
-  run: SOPRun;
-}
 
 interface SOPHeaderProps {
   chatId: number;
   refreshTrigger?: number;
+  sop: SOP;
 }
 
-export default function SOPHeader({ chatId, refreshTrigger }: SOPHeaderProps) {
-  const [sopData, setSOPData] = useState<SOPData | null>(null);
+export default function SOPHeader({ chatId, refreshTrigger, sop }: SOPHeaderProps) {
+  const [sopRun, setSOPRun] = useState<SOPRun | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const isInitialLoad = useRef(true);
 
   useEffect(() => {
-    const fetchSOPData = async () => {
+    const fetchSOPRun = async () => {
       try {
-        setLoading(true);
-        setError(null);
-        const response = await fetch(`/api/chats/${chatId}/sop`);
+        // Only show loading on initial load, not on updates
+        if (isInitialLoad.current) {
+          setLoading(true);
+        }
+        // Fetch the latest SOP run data from the server-side function
+        const response = await fetch(`/api/chats/${chatId}/run`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch SOP run');
+        }
         const data = await response.json();
-        setSOPData(data);
+        setSOPRun(data);
+        
+        // Mark initial load as complete and hide loading state
+        if (isInitialLoad.current) {
+          setLoading(false);
+          isInitialLoad.current = false;
+        }
       } catch (err) {
-        console.error('Error fetching SOP data:', err);
-        setError('Failed to load SOP');
-      } finally {
-        setLoading(false);
+        console.error('Error fetching SOP run:', err);
+        if (isInitialLoad.current) {
+          setLoading(false);
+          isInitialLoad.current = false;
+        }
       }
     };
 
-    fetchSOPData();
+    fetchSOPRun();
   }, [chatId, refreshTrigger]);
 
-  if (loading) {
+  if (loading || !sopRun) {
     return (
-      <div className="h-20 border-b border-border bg-background-secondary/30 flex items-center px-6">
-        <div className="text-foreground-muted text-sm">Loading SOP...</div>
+      <div className="border-b border-border bg-background-secondary/30 px-6 py-2 flex items-center gap-4 overflow-x-auto max-h-14">
+        <div className="text-foreground-muted text-xs">Loading SOP...</div>
       </div>
     );
   }
 
-  if (error || !sopData) {
-    return null;
-  }
-
-  const { sop, run } = sopData;
+  const run = sopRun;
   
   // Check if SOP is done
   const isDone = run.currentStepId === 'DONE';
   const currentStepIndex = isDone ? sop.steps.length : sop.steps.findIndex((step) => step.id === run.currentStepId);
 
+  const totalSteps = sop.steps.length;
+  const currentStep = sop.steps[currentStepIndex];
+  const progressPercent = isDone ? 100 : (currentStepIndex / totalSteps) * 100;
+
   return (
-    <div className="border-b border-border bg-background-secondary/30">
-      {/* SOP Title */}
-      <div className="px-6 py-3 border-b border-border/50">
-        <h2 className="text-sm font-semibold text-foreground">
-          {sop.displayName}
-        </h2>
-        <p className="text-xs text-foreground-muted mt-1">{sop.description}</p>
+    <div className="border-b border-border bg-background-secondary/30 px-6 py-3 flex items-center justify-between gap-4 max-h-16">
+      {/* Left: SOP Title & Progress */}
+      <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div className="flex-shrink-0">
+          <h2 className="text-sm font-semibold text-foreground truncate">
+            {sop.displayName}
+          </h2>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="flex-1 h-1.5 bg-background-tertiary rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all duration-300 ${
+              isDone ? 'bg-emerald-500' : 'bg-action'
+            }`}
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
       </div>
 
-      {/* Steps Indicator */}
-      <div className="px-6 py-4">
-        <div className="flex items-center gap-3 overflow-x-auto pb-2">
-          {sop.steps.map((step, index) => {
-            const isCompleted = index < currentStepIndex;
-            const isCurrent = index === currentStepIndex && !isDone;
-            const isUpcoming = index > currentStepIndex;
-
-            return (
-              <div key={step.id} className="flex items-center gap-3 flex-shrink-0">
-                {/* Step Indicator */}
-                <div
-                  className={`flex items-center justify-center w-8 h-8 rounded-full font-medium text-xs transition-colors ${
-                    isCurrent
-                      ? 'bg-action text-white'
-                      : isCompleted
-                      ? 'bg-emerald-500/20 text-emerald-500'
-                      : 'bg-background-tertiary text-foreground-muted'
-                  }`}
-                >
-                  {isCompleted ? '✓' : index + 1}
-                </div>
-
-                {/* Step Label */}
-                <div className="flex flex-col min-w-0">
-                  <span
-                    className={`text-xs font-medium truncate ${
-                      isCurrent
-                        ? 'text-action'
-                        : isCompleted
-                        ? 'text-emerald-500'
-                        : 'text-foreground-muted'
-                    }`}
-                  >
-                    {step.userFacingTitle || step.assistantFacingTitle}
-                  </span>
-                </div>
-
-                {/* Arrow to next step */}
-                {index < sop.steps.length - 1 && (
-                  <div className="text-foreground-muted/30 text-xs flex-shrink-0">→</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Step Status */}
-        <div className="mt-2">
-          {isDone ? (
-            <p className="text-xs text-emerald-500 font-medium">
-              ✓ SOP Complete!
-            </p>
-          ) : (
-            <p className="text-xs text-foreground-muted">
-              Step {currentStepIndex + 1} of {sop.steps.length}:{' '}
-              <span className="text-foreground font-medium">
-                {sop.steps[currentStepIndex]?.userFacingTitle || sop.steps[currentStepIndex]?.assistantFacingTitle}
-              </span>
-            </p>
-          )}
-        </div>
+      {/* Right: Current Step Info */}
+      <div className="flex-shrink-0 text-right">
+        {isDone ? (
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-emerald-500">✓ Complete</span>
+            <span className="text-xs text-foreground-muted">{totalSteps} of {totalSteps}</span>
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-action">
+              {currentStep?.userFacingTitle || currentStep?.assistantFacingTitle || 'Current Step'}
+            </span>
+            <span className="text-xs text-foreground-muted">Step {currentStepIndex + 1} of {totalSteps}</span>
+          </div>
+        )}
       </div>
     </div>
   );

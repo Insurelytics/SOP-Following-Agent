@@ -16,6 +16,11 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
     if (message.trim() && !disabled) {
       onSendMessage(message.trim());
       setMessage('');
+      // Reset textarea height and multiline state
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '24px';
+        setIsMultiLine(false);
+      }
     }
   };
 

@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Message } from '@/lib/db';
+import { Message, Chat } from '@/lib/db';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
 import SOPHeader from './SOPHeader';
 
 interface ChatInterfaceProps {
   chatId: number;
+  currentChat?: Chat | null;
 }
 
 interface ToolCall {
@@ -17,6 +18,7 @@ interface ToolCall {
 
 export default function ChatInterface({
   chatId,
+  currentChat,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -160,7 +162,9 @@ export default function ChatInterface({
   return (
     <div className="flex-1 flex flex-col h-full relative">
       {/* SOP Header (if chat has an active SOP run) */}
-      <SOPHeader chatId={chatId} refreshTrigger={sopRefreshTrigger} />
+      {currentChat?.sop && (
+        <SOPHeader chatId={chatId} refreshTrigger={sopRefreshTrigger} sop={currentChat.sop} />
+      )}
 
       {/* Messages */}
       {isLoading ? (

@@ -90,6 +90,13 @@ export default function Home() {
         throw new Error('Failed to create SOP run');
       }
 
+      // Fetch the SOP data to attach to the chat
+      const sopResponse = await fetch(`/api/sops/${sopId}`);
+      if (sopResponse.ok) {
+        const sopData = await sopResponse.json();
+        newChat.sop = sopData;
+      }
+
       setChats((prev) => [newChat, ...prev]);
       setCurrentChatId(newChat.id);
     } catch (error) {
@@ -122,6 +129,7 @@ export default function Home() {
       {currentChatId ? (
         <ChatInterface
           chatId={currentChatId}
+          currentChat={chats.find(c => c.id === currentChatId) || null}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-foreground-muted">

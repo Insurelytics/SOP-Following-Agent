@@ -140,6 +140,7 @@ export interface Chat {
   model: string;
   title: string | null;
   created_at: string;
+  sop?: SOP | null; // Optional SOP associated with the latest run
 }
 
 export interface Message {
@@ -183,6 +184,21 @@ export function getChatsForUser(userId: number): Chat[] {
     'SELECT * FROM chats WHERE user_id = ? ORDER BY created_at DESC'
   );
   return stmt.all(userId) as Chat[];
+}
+
+/**
+ * Get all chats for a user with their associated SOP data
+ */
+export function getChatsForUserWithSOPs(userId: number): Chat[] {
+  const chats = getChatsForUser(userId);
+  return chats.map((chat) => {
+    const sopRun = getLatestSOPRun(chat.id);
+    const sop = sopRun ? getSOP(sopRun.sopId) : null;
+    return {
+      ...chat,
+      sop: sop || null,
+    };
+  });
 }
 
 export function getChat(chatId: number): Chat | undefined {

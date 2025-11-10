@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getLatestSOPRun, getSOP } from '@/lib/db';
+import { getLatestSOPRun } from '@/lib/db';
 
 /**
- * GET /api/chats/[chatId]/sop - Get the active SOP for a chat
- * Returns the SOP data if a run exists, or null if no SOP is associated
+ * GET /api/chats/[chatId]/run - Get the latest SOP run for a chat
+ * Returns the SOP run data if it exists, or null if no run is associated
  */
 export async function GET(
   request: NextRequest,
@@ -24,19 +24,9 @@ export async function GET(
       return NextResponse.json(null);
     }
 
-    // Get the SOP details
-    const sop = getSOP(sopRun.sopId);
-    
-    if (!sop) {
-      return NextResponse.json(null);
-    }
-
-    return NextResponse.json({
-      sop,
-      run: sopRun,
-    });
+    return NextResponse.json(sopRun);
   } catch (error) {
-    console.error('Error fetching chat SOP:', error);
+    console.error('Error fetching chat run:', error);
     return NextResponse.json(null, { status: 500 });
   }
 }
