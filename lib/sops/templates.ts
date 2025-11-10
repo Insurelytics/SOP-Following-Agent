@@ -64,16 +64,16 @@ export const PDFSummarySOP: SOP = {
       stepNumber: 2,
       assistantFacingTitle: 'Summarize Document',
       userFacingTitle: 'View Summary',
-      description: 'Summarize the document provided by the user.',
+      description: 'Create a summary document of what the user provided.',
       referencedDocuments: ['source_document'],
 
       expectedOutput: {
-        type: 'markdown',
+        type: 'markdown-document',
         format: 'pdf-summary',
-        description: 'Follows the format exactly',
+        description: 'A document and a brief message to the user about said document.',
       },
 
-      nextStep: null,
+      nextStep: 'DONE',
     },
   ],
 
@@ -182,9 +182,9 @@ export const ContentPlanSOP: SOP = {
       referencedDocuments: ['client_onboarding', 'comps_list'],
 
       expectedOutput: {
-        type: 'markdown',
+        type: 'markdown-document',
         format: 'style-guide-ratio',
-        description: 'Follows the format exactly',
+        description: 'A document and a brief message to the user about said document.',
       },
 
       nextStep: 'step-3-video-ideas',
@@ -216,9 +216,9 @@ export const ContentPlanSOP: SOP = {
       referencedDocuments: ['client_onboarding', 'comps_list'],
 
       expectedOutput: {
-        type: 'markdown',
+        type: 'markdown-document',
         format: 'script-format',
-        description: 'Follows the format exactly',
+        description: 'A document and a brief message to the user about the document.',
       },
       // Optional repeating pattern: user can choose to loop back to step 3 or complete
       nextStep: ['step-3-video-ideas', 'DONE'],

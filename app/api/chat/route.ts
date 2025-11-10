@@ -1,9 +1,11 @@
 import { NextRequest } from 'next/server';
-import { addTool, DEFAULT_MODEL } from '@/lib/openai';
-import { saveMessage, getMessages, getChat } from '@/lib/db';
+import { writeDocumentTool, DEFAULT_MODEL } from '@/lib/openai';
+import { saveMessage, getMessages, getChat, getActiveSOPRun, getSOP, saveToolCallMessage, saveToolResultMessage, updateSOPRunStep } from '@/lib/db';
 import { createSystemPrompt } from '@/lib/services/prompt';
 import { handleChatStream } from '@/lib/services/chat-stream';
+import { determineNextStep } from '@/lib/services/stepManager';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import type { ToolExecutionContext } from '@/lib/services/tools';
 
 /**
  * Validates the incoming request
@@ -17,18 +19,42 @@ function validateRequest(chatId: unknown, message: unknown): { valid: boolean; e
 
 /**
  * Prepares the conversation messages with system prompt
+ * Properly reconstructs tool call and tool result messages from stored data
  */
 function prepareConversationMessages(
   model: string,
-  history: any[]
+  history: any[],
+  sop?: any,
+  currentStepId?: string
 ): ChatCompletionMessageParam[] {
-  const conversationMessages: ChatCompletionMessageParam[] = history.map((msg) => ({
-    role: msg.role as 'user' | 'assistant' | 'system',
-    content: msg.content,
-  }));
+  const conversationMessages: ChatCompletionMessageParam[] = history.map((msg) => {
+    // Handle assistant messages with tool calls
+    if (msg.role === 'assistant' && msg.tool_calls) {
+      return {
+        role: 'assistant',
+        content: null,
+        tool_calls: JSON.parse(msg.tool_calls),
+      } as any;
+    }
+    
+    // Handle tool result messages
+    if (msg.role === 'tool' && msg.tool_call_id) {
+      return {
+        role: 'tool',
+        content: msg.content,
+        tool_call_id: msg.tool_call_id,
+      } as any;
+    }
+
+    // Handle regular user and assistant messages
+    return {
+      role: msg.role as 'user' | 'assistant' | 'system',
+      content: msg.content || '',
+    } as ChatCompletionMessageParam;
+  });
 
   // Prepend system prompt
-  const systemPrompt = createSystemPrompt(model);
+  const systemPrompt = createSystemPrompt(model, sop, currentStepId);
   conversationMessages.unshift({
     role: 'system',
     content: systemPrompt,
@@ -57,8 +83,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Convert chatId to number
+    const numChatId = Number(chatId);
+
     // Verify chat exists
-    const chat = getChat(chatId);
+    const chat = getChat(numChatId);
     if (!chat) {
       return new Response(JSON.stringify({ error: 'Chat not found' }), {
         status: 404,
@@ -66,12 +95,56 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Fetch active SOP for this chat if one exists
+    const sopRun = getActiveSOPRun(numChatId);
+    let sop = undefined;
+    if (sopRun) {
+      sop = getSOP(sopRun.sopId);
+      console.log('Found active SOP run:', sopRun.sopId);
+      console.log('SOP data:', sop);
+    }
+
     // Save user message
-    saveMessage(chatId, 'user', message);
+    saveMessage(numChatId, 'user', message);
 
     // Get conversation history
-    const history = getMessages(chatId);
-    const conversationMessages = prepareConversationMessages(model, history);
+    const history = getMessages(numChatId);
+    const conversationMessages = prepareConversationMessages(model, history, sop, sopRun?.currentStepId);
+
+    // Prepare tool execution context
+    const toolContext: ToolExecutionContext = {
+      chatId: numChatId,
+      sop,
+      sopRunId: sopRun?.id,
+      currentStepId: sopRun?.currentStepId,
+    };
+
+    // Determine next step before generating AI response (if SOP is active)
+    let currentStepId = sopRun?.currentStepId;
+    let stepDecision: { stepId: string } | null = null;
+    
+    if (sop && currentStepId) {
+      const currentStep = sop.steps.find(s => s.id === currentStepId);
+      if (currentStep) {
+        try {
+          stepDecision = await determineNextStep(message, currentStep, sop);
+          
+          // Update the step if it changed
+          if (stepDecision.stepId !== currentStepId && sopRun) {
+            updateSOPRunStep(sopRun.id, stepDecision.stepId);
+            currentStepId = stepDecision.stepId;
+            toolContext.currentStepId = currentStepId;
+            console.log(`Step transition: ${sopRun.currentStepId} → ${stepDecision.stepId}`);
+          }
+        } catch (error) {
+          console.error('Error determining next step:', error);
+          // Continue with current step if step determination fails
+        }
+      }
+    }
+
+    // Recreate conversation messages with potentially updated step
+    const updatedConversationMessages = prepareConversationMessages(model, history, sop, currentStepId);
 
     // Create a ReadableStream for Server-Sent Events
     const encoder = new TextEncoder();
@@ -80,11 +153,34 @@ export async function POST(request: NextRequest) {
         try {
           let fullResponse = '';
 
+          // Send step decision if one was made
+          if (stepDecision && stepDecision.stepId !== sopRun?.currentStepId) {
+            const stepDecisionData = JSON.stringify({
+              type: 'step_transition',
+              previousStep: sopRun?.currentStepId,
+              nextStep: stepDecision.stepId,
+            });
+            controller.enqueue(encoder.encode(`data: ${stepDecisionData}\n\n`));
+          }
+
           // Stream the chat completion with tool support
-          for await (const streamData of handleChatStream(model, conversationMessages, addTool)) {
+          for await (const streamData of handleChatStream(model, updatedConversationMessages, [writeDocumentTool], toolContext)) {
             // Accumulate full response for saving
             if (streamData.type === 'content') {
               fullResponse += streamData.content || '';
+            }
+
+            // Save tool messages to database when tools are executed
+            if (streamData.type === 'tool' && streamData.messagesToSave) {
+              for (const msg of streamData.messagesToSave) {
+                if (msg.role === 'assistant' && 'tool_calls' in msg && msg.tool_calls) {
+                  // Save the assistant's tool call message
+                  saveToolCallMessage(numChatId, msg.tool_calls);
+                } else if (msg.role === 'tool' && 'tool_call_id' in msg && msg.tool_call_id) {
+                  // Save the tool's result message
+                  saveToolResultMessage(numChatId, msg.tool_call_id, msg.content);
+                }
+              }
             }
 
             // Send all stream data to client
@@ -93,7 +189,7 @@ export async function POST(request: NextRequest) {
 
             // Save response when stream is done
             if (streamData.type === 'done' && fullResponse) {
-              saveMessage(chatId, 'assistant', fullResponse);
+              saveMessage(numChatId, 'assistant', fullResponse);
             }
           }
 

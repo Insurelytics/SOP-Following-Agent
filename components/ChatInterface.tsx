@@ -25,6 +25,7 @@ export default function ChatInterface({
   const [currentToolCall, setCurrentToolCall] = useState<ToolCall | null>(null);
   const [hasContentStarted, setHasContentStarted] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [sopRefreshTrigger, setSOPRefreshTrigger] = useState(0);
 
   // Load messages when chat changes
   useEffect(() => {
@@ -115,7 +116,8 @@ export default function ChatInterface({
                   id: data.name,
                 });
               } else if (data.type === 'done') {
-                // Stream complete
+                // Stream complete - trigger SOP header refresh to show step updates
+                setSOPRefreshTrigger(prev => prev + 1);
                 break;
               } else if (data.type === 'error') {
                 console.error('Stream error:', data.message);
@@ -158,7 +160,7 @@ export default function ChatInterface({
   return (
     <div className="flex-1 flex flex-col h-full relative">
       {/* SOP Header (if chat has an active SOP run) */}
-      <SOPHeader chatId={chatId} />
+      <SOPHeader chatId={chatId} refreshTrigger={sopRefreshTrigger} />
 
       {/* Messages */}
       {isLoading ? (

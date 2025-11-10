@@ -7,7 +7,7 @@
  * Defines what the AI should produce at this step
  */
 export interface ExpectedOutput {
-  type: 'text' | 'markdown' | 'structured' | 'conversation';
+  type: 'text' | 'markdown-document' | 'structured' | 'conversation';
   format?: string;
   description?: string;
 }

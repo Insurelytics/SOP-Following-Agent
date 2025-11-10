@@ -11,9 +11,10 @@ interface SOPData {
 
 interface SOPHeaderProps {
   chatId: number;
+  refreshTrigger?: number;
 }
 
-export default function SOPHeader({ chatId }: SOPHeaderProps) {
+export default function SOPHeader({ chatId, refreshTrigger }: SOPHeaderProps) {
   const [sopData, setSOPData] = useState<SOPData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export default function SOPHeader({ chatId }: SOPHeaderProps) {
     };
 
     fetchSOPData();
-  }, [chatId]);
+  }, [chatId, refreshTrigger]);
 
   if (loading) {
     return (
@@ -50,7 +51,10 @@ export default function SOPHeader({ chatId }: SOPHeaderProps) {
   }
 
   const { sop, run } = sopData;
-  const currentStepIndex = sop.steps.findIndex((step) => step.id === run.currentStepId);
+  
+  // Check if SOP is done
+  const isDone = run.currentStepId === 'DONE';
+  const currentStepIndex = isDone ? sop.steps.length : sop.steps.findIndex((step) => step.id === run.currentStepId);
 
   return (
     <div className="border-b border-border bg-background-secondary/30">
@@ -67,7 +71,7 @@ export default function SOPHeader({ chatId }: SOPHeaderProps) {
         <div className="flex items-center gap-3 overflow-x-auto pb-2">
           {sop.steps.map((step, index) => {
             const isCompleted = index < currentStepIndex;
-            const isCurrent = index === currentStepIndex;
+            const isCurrent = index === currentStepIndex && !isDone;
             const isUpcoming = index > currentStepIndex;
 
             return (
@@ -111,12 +115,18 @@ export default function SOPHeader({ chatId }: SOPHeaderProps) {
 
         {/* Step Status */}
         <div className="mt-2">
-          <p className="text-xs text-foreground-muted">
-            Step {currentStepIndex + 1} of {sop.steps.length}:{' '}
-            <span className="text-foreground font-medium">
-              {sop.steps[currentStepIndex]?.userFacingTitle || sop.steps[currentStepIndex]?.assistantFacingTitle}
-            </span>
-          </p>
+          {isDone ? (
+            <p className="text-xs text-emerald-500 font-medium">
+              ✓ SOP Complete!
+            </p>
+          ) : (
+            <p className="text-xs text-foreground-muted">
+              Step {currentStepIndex + 1} of {sop.steps.length}:{' '}
+              <span className="text-foreground font-medium">
+                {sop.steps[currentStepIndex]?.userFacingTitle || sop.steps[currentStepIndex]?.assistantFacingTitle}
+              </span>
+            </p>
+          )}
         </div>
       </div>
     </div>

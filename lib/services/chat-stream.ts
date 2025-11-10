@@ -4,7 +4,7 @@
  */
 
 import { openai } from '@/lib/openai';
-import { executeSingleTool, convertToolResultsToMessages, type ToolCall } from './tools';
+import { executeSingleTool, convertToolResultsToMessages, type ToolCall, type ToolExecutionContext } from './tools';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 export interface StreamData {
@@ -14,6 +14,7 @@ export interface StreamData {
   args?: any;
   result?: any;
   message?: string;
+  messagesToSave?: ChatCompletionMessageParam[]; // Tool call and result messages to persist
 }
 
 /**
@@ -55,7 +56,7 @@ function aggregateToolCalls(
 export async function* streamInitialCompletion(
   model: string,
   messages: ChatCompletionMessageParam[],
-  addTool: any
+  tools: any[]
 ): AsyncGenerator<{
   type: 'content' | 'toolCalls' | 'done';
   content?: string;
@@ -65,7 +66,7 @@ export async function* streamInitialCompletion(
   const completion = await openai.chat.completions.create({
     model,
     messages,
-    tools: [addTool],
+    tools,
     tool_choice: 'auto',
     stream: true,
   });
@@ -131,14 +132,15 @@ export async function* streamFinalCompletion(
 export async function* handleChatStream(
   model: string,
   messages: ChatCompletionMessageParam[],
-  addTool: any
+  tools: any[],
+  toolContext?: ToolExecutionContext
 ): AsyncGenerator<StreamData> {
   let fullResponse = '';
   let toolsWereExecuted = false;
   let conversationMessages = [...messages];
 
   // Initial completion
-  for await (const chunk of streamInitialCompletion(model, conversationMessages, addTool)) {
+  for await (const chunk of streamInitialCompletion(model, conversationMessages, tools)) {
     if (chunk.type === 'content') {
       fullResponse += chunk.content || '';
       yield {
@@ -154,17 +156,20 @@ export async function* handleChatStream(
 
         // Execute tools and send results
         for (const toolCall of chunk.toolCalls) {
-          const executionResult = executeSingleTool(toolCall);
+          const executionResult = executeSingleTool(toolCall, toolContext);
+
+          // Convert tool results to messages that should be saved to database
+          const toolMessages = convertToolResultsToMessages(toolCall, executionResult);
 
           yield {
             type: 'tool',
             name: toolCall.function.name,
             args: executionResult.args,
             result: executionResult.result,
+            messagesToSave: toolMessages,
           };
 
           // Add tool results to conversation
-          const toolMessages = convertToolResultsToMessages(toolCall, executionResult);
           conversationMessages.push(...toolMessages);
         }
 

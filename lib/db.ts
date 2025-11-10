@@ -8,6 +8,25 @@ const db = new Database(dbPath);
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
 
+/**
+ * Migrate database schema to support tool calls
+ */
+function migrateDatabase() {
+  // Check if tool_calls and tool_call_id columns exist
+  const tableInfo = db.pragma('table_info(messages)') as Array<{ name: string }>;
+  const columnNames = tableInfo.map((col) => col.name);
+
+  if (!columnNames.includes('tool_calls')) {
+    console.log('Adding tool_calls column to messages table');
+    db.exec('ALTER TABLE messages ADD COLUMN tool_calls TEXT');
+  }
+
+  if (!columnNames.includes('tool_call_id')) {
+    console.log('Adding tool_call_id column to messages table');
+    db.exec('ALTER TABLE messages ADD COLUMN tool_call_id TEXT');
+  }
+}
+
 // Initialize database schema
 export function initializeDatabase() {
   // Create users table
@@ -37,7 +56,9 @@ export function initializeDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       chat_id INTEGER NOT NULL,
       role TEXT NOT NULL,
-      content TEXT NOT NULL,
+      content TEXT,
+      tool_calls TEXT,
+      tool_call_id TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
     )
@@ -101,6 +122,9 @@ export function initializeDatabase() {
   `);
 
   console.log('Database initialized successfully');
+  
+  // Run migrations
+  migrateDatabase();
 }
 
 // Types
@@ -122,7 +146,9 @@ export interface Message {
   id: number;
   chat_id: number;
   role: 'user' | 'assistant' | 'tool';
-  content: string;
+  content: string | null;
+  tool_calls?: string | null; // JSON string of tool calls array
+  tool_call_id?: string | null;
   created_at: string;
 }
 
@@ -196,6 +222,40 @@ export function getLastMessage(chatId: number): Message | undefined {
     'SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at DESC LIMIT 1'
   );
   return stmt.get(chatId) as Message | undefined;
+}
+
+/**
+ * Save a tool call message (assistant message with tool calls)
+ */
+export function saveToolCallMessage(
+  chatId: number,
+  toolCalls: any[]
+): Message {
+  const stmt = db.prepare(
+    'INSERT INTO messages (chat_id, role, content, tool_calls) VALUES (?, ?, ?, ?)'
+  );
+  // Use empty string for content since tool calls are stored separately
+  const result = stmt.run(chatId, 'assistant', '', JSON.stringify(toolCalls));
+  
+  const selectStmt = db.prepare('SELECT * FROM messages WHERE id = ?');
+  return selectStmt.get(result.lastInsertRowid) as Message;
+}
+
+/**
+ * Save a tool result message (tool role message)
+ */
+export function saveToolResultMessage(
+  chatId: number,
+  toolCallId: string,
+  result: any
+): Message {
+  const stmt = db.prepare(
+    'INSERT INTO messages (chat_id, role, content, tool_call_id) VALUES (?, ?, ?, ?)'
+  );
+  const resultRow = stmt.run(chatId, 'tool', JSON.stringify(result), toolCallId);
+  
+  const selectStmt = db.prepare('SELECT * FROM messages WHERE id = ?');
+  return selectStmt.get(resultRow.lastInsertRowid) as Message;
 }
 
 // ============================================================================

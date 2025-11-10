@@ -33,26 +33,27 @@ console.log('DEFAULT_MODEL', DEFAULT_MODEL);
 // ============================================================================
 
 /**
- * Addition tool that adds two numbers
+ * Write document tool for SOP workflows
+ * Allows the AI to write and display a formatted document
  */
-export const addTool: ChatCompletionTool = {
+export const writeDocumentTool: ChatCompletionTool = {
   type: 'function',
   function: {
-    name: 'add',
-    description: 'Adds two numbers together and returns the sum',
+    name: 'write_document',
+    description: 'Writes a formatted document for the current SOP step. The document is validated against the step requirements and displayed to the user automatically.',
     parameters: {
       type: 'object',
       properties: {
-        a: {
-          type: 'number',
-          description: 'The first number to add',
+        stepId: {
+          type: 'string',
+          description: 'The ID of the current SOP step',
         },
-        b: {
-          type: 'number',
-          description: 'The second number to add',
+        content: {
+          type: 'string',
+          description: 'The document content to write',
         },
       },
-      required: ['a', 'b'],
+      required: ['stepId', 'content'],
     },
   },
 };
