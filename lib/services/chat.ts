@@ -17,6 +17,7 @@ export function getUserChats(username: string = 'dev-test') {
 
 /**
  * Creates a new chat for the default user
+ * @param username - The username to create a chat for
  */
 export function createNewChat(username: string = 'dev-test') {
   const user = getOrCreateUser(username);

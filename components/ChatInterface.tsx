@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Message } from '@/lib/db';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
+import SOPHeader from './SOPHeader';
 
 interface ChatInterfaceProps {
   chatId: number;
@@ -156,10 +157,8 @@ export default function ChatInterface({
 
   return (
     <div className="flex-1 flex flex-col h-full relative">
-      {/* Header */}
-      <div className="border-b border-border bg-background-secondary px-6 py-4">
-        <h2 className="text-lg font-semibold text-foreground">Chat #{chatId}</h2>
-      </div>
+      {/* SOP Header (if chat has an active SOP run) */}
+      <SOPHeader chatId={chatId} />
 
       {/* Messages */}
       {isLoading ? (

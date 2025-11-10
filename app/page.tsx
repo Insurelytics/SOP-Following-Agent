@@ -4,15 +4,18 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import ChatInterface from '@/components/ChatInterface';
 import { Chat } from '@/lib/db';
+import type { SOP } from '@/lib/types/sop';
 
 export default function Home() {
   const [chats, setChats] = useState<Chat[]>([]);
+  const [sops, setSOPs] = useState<SOP[]>([]);
   const [currentChatId, setCurrentChatId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load chats on mount
+  // Load chats and SOPs on mount
   useEffect(() => {
     loadChats();
+    loadSOPs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -30,6 +33,16 @@ export default function Home() {
       console.error('Error loading chats:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadSOPs = async () => {
+    try {
+      const response = await fetch('/api/sops');
+      const data = await response.json();
+      setSOPs(data);
+    } catch (error) {
+      console.error('Error loading SOPs:', error);
     }
   };
 
@@ -52,6 +65,38 @@ export default function Home() {
     }
   };
 
+  const handleSelectSOPTemplate = async (sopId: string) => {
+    try {
+      // Create a new chat
+      const chatResponse = await fetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!chatResponse.ok) {
+        throw new Error('Failed to create chat');
+      }
+
+      const newChat = await chatResponse.json();
+      
+      // Create a new SOP run for this chat
+      const runResponse = await fetch(`/api/sops/${sopId}/runs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId: newChat.id }),
+      });
+
+      if (!runResponse.ok) {
+        throw new Error('Failed to create SOP run');
+      }
+
+      setChats((prev) => [newChat, ...prev]);
+      setCurrentChatId(newChat.id);
+    } catch (error) {
+      console.error('Error creating chat with SOP:', error);
+    }
+  };
+
   const handleSelectChat = (chatId: number) => {
     setCurrentChatId(chatId);
   };
@@ -68,9 +113,11 @@ export default function Home() {
     <main className="h-screen flex bg-background text-foreground overflow-hidden">
       <Sidebar
         chats={chats}
+        sops={sops}
         currentChatId={currentChatId}
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
+        onSelectSOP={handleSelectSOPTemplate}
       />
       {currentChatId ? (
         <ChatInterface
