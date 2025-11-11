@@ -11,6 +11,30 @@ function findStepById(sop: SOP, stepId: string): SOPStep | undefined {
   return sop.steps.find(s => s.id === stepId);
 }
 
+/**
+ * Generates tool-specific instructions based on available tools
+ */
+function generateToolInstructions(tools: string[]): string {
+  const toolInstructions: { [key: string]: string } = {
+    write_document: `**write_document**: Use this tool when the current step requires a specific output format (markdown-document, structured, etc.). Call with the current step ID and complete proposed output. After calling this tool:
+- NEVER paste, repeat, or include the document content in your response
+- NEVER summarize or quote the document text
+- DO briefly confirm that you created a document ("I've created a document...")
+- DO proceed directly to the next step or ask what the user would like to do next
+The tool is the final output; your response should only explain what was done.`,
+  };
+
+  const relevantInstructions = tools
+    .filter(tool => toolInstructions[tool])
+    .map(tool => toolInstructions[tool]);
+
+  if (relevantInstructions.length === 0) {
+    return '';
+  }
+
+  return `\n\n## Tool Instructions\n\n${relevantInstructions.join('\n\n')}`;
+}
+
 
 /**
  * Creates the system prompt for the conversation
@@ -55,7 +79,11 @@ export function createSystemPrompt(model: string, sop?: SOP, currentStepId?: str
       prompt += `\n\n## Valid Next Steps\n\nWhen you complete the current step, you can advance to one of these steps:\n${validNextSteps.map(s => `- ${s}`).join('\n')}`;
     }
 
-    prompt += `\n\n## Important Instructions\n\nWhenever providing output that requires a specific format (markdown-document, structured, etc.), you MUST call the \`write_document\` tool with the current step ID and the complete proposed output. This validates that your output meets the format requirements.\n\n**CRITICAL**: After calling the write_document tool:\n- NEVER paste, repeat, or include the document content in your response\n- NEVER summarize or quote the document text\n- DO briefly confirm that you did create a document. ("I've created a document...")\n- DO proceed directly to the next step or ask the user what they'd like to do next\n\nThe tool is the final output. Your response should only explain what was done, not reproduce what was written.`;
+    // Add tool instructions for available tools
+    const toolInstructions = generateToolInstructions(sop.providedTools);
+    if (toolInstructions) {
+      prompt += toolInstructions;
+    }
   }
 
   return prompt;

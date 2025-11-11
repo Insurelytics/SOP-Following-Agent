@@ -41,7 +41,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   };
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center bg-background">
+    <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center">
       <div className="w-[60%] flex flex-col">
         <div className={`flex ${isMultiLine ? 'items-end' : 'items-center'} bg-background-secondary border border-input-border rounded-[30px] px-4 py-3 focus-within:ring-2 focus-within:ring-action transition-all duration-200`}>
           <textarea

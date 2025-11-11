@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import ChatInterface from '@/components/ChatInterface';
+import DocumentViewer from '@/components/DocumentViewer';
 import { Chat } from '@/lib/db';
 import type { SOP } from '@/lib/types/sop';
 
@@ -10,6 +11,10 @@ export default function Home() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [sops, setSOPs] = useState<SOP[]>([]);
   const [currentChatId, setCurrentChatId] = useState<number | null>(null);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
+  const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(50); // percentage
+  const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load chats and SOPs on mount
@@ -108,6 +113,46 @@ export default function Home() {
     setCurrentChatId(chatId);
   };
 
+  // Handle divider drag
+  const handleMouseDown = () => {
+    setIsDragging(true);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+
+      // Find the flex container that holds chat and document viewer
+      const flexContainer = document.querySelector('main > div:last-child');
+      if (!flexContainer) return;
+
+      const containerRect = flexContainer.getBoundingClientRect();
+      const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+
+      // Constrain width between 30% and 70%
+      if (newWidth >= 30 && newWidth <= 70) {
+        setLeftPanelWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      // Prevent text selection while dragging
+      document.body.style.userSelect = 'none';
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
   if (isLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
@@ -127,10 +172,47 @@ export default function Home() {
         onSelectSOP={handleSelectSOPTemplate}
       />
       {currentChatId ? (
-        <ChatInterface
-          chatId={currentChatId}
-          currentChat={chats.find(c => c.id === currentChatId) || null}
-        />
+        <div className="flex-1 flex overflow-hidden">
+          {/* Chat Interface */}
+          <div
+            className="flex flex-col"
+            style={{ width: `${isDocumentViewerOpen ? leftPanelWidth : 100}%` }}
+          >
+            <ChatInterface
+              chatId={currentChatId}
+              currentChat={chats.find(c => c.id === currentChatId) || null}
+              onOpenDocument={(docId) => {
+                setSelectedDocumentId(docId);
+                setIsDocumentViewerOpen(true);
+              }}
+            />
+          </div>
+
+          {/* Resizable Divider */}
+          {isDocumentViewerOpen && (
+            <div
+              onMouseDown={handleMouseDown}
+              className={`w-1 bg-border hover:bg-primary cursor-col-resize transition-colors user-select-none ${
+                isDragging ? 'bg-primary' : ''
+              }`}
+            />
+          )}
+
+          {/* Document Viewer */}
+          {isDocumentViewerOpen && (
+            <div
+              className="flex flex-col overflow-hidden"
+              style={{ width: `${100 - leftPanelWidth}%` }}
+            >
+              <DocumentViewer
+                chatId={currentChatId}
+                selectedDocumentId={selectedDocumentId}
+                onDocumentSelect={(docId) => setSelectedDocumentId(docId)}
+                onClose={() => setIsDocumentViewerOpen(false)}
+              />
+            </div>
+          )}
+        </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-foreground-muted">
           <div className="text-center">

@@ -16,6 +16,7 @@ interface MessageListProps {
   currentToolCall?: ToolCall | null;
   isThinking?: boolean;
   chatId: number;
+  onOpenDocument?: (documentId: number) => void;
 }
 
 export default function MessageList({
@@ -25,6 +26,7 @@ export default function MessageList({
   currentToolCall,
   isThinking,
   chatId,
+  onOpenDocument,
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -77,8 +79,31 @@ export default function MessageList({
                   }`}
                 >
                   {message.role === 'tool' ? (
-                    <div className="font-mono text-xs text-foreground-muted">
-                      AI Called Tool: {message.tool_name || 'Unknown'}
+                    <div>
+                      {message.tool_name === 'write_document' ? (
+                        <button
+                          onClick={() => {
+                            // Extract document ID from content if available
+                            try {
+                              const content = JSON.parse(message.content || '{}');
+                              const docIdMatch = content.toString().match(/ID: (\d+)/);
+                              if (docIdMatch && onOpenDocument) {
+                                onOpenDocument(parseInt(docIdMatch[1]));
+                              }
+                            } catch (e) {
+                              console.error('Error parsing tool result:', e);
+                            }
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary hover:bg-primary-hover text-foreground transition-colors text-sm font-medium"
+                        >
+                          <span>📄</span>
+                          <span>View Document</span>
+                        </button>
+                      ) : (
+                        <div className="font-mono text-xs text-foreground-muted">
+                          AI Called Tool: {message.tool_name || 'Unknown'}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="max-w-none break-words prose prose-sm sm:prose-base lg:prose-lg prose-headings:my-2 prose-p:my-2 prose-li:my-0 prose-code:bg-background-tertiary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background-tertiary prose-pre:p-3 prose-pre:rounded dark:prose-invert">

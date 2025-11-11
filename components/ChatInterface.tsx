@@ -9,6 +9,7 @@ import SOPHeader from './SOPHeader';
 interface ChatInterfaceProps {
   chatId: number;
   currentChat?: Chat | null;
+  onOpenDocument?: (documentId: number) => void;
 }
 
 interface ToolCall {
@@ -19,6 +20,7 @@ interface ToolCall {
 export default function ChatInterface({
   chatId,
   currentChat,
+  onOpenDocument,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -31,6 +33,7 @@ export default function ChatInterface({
   const lastSOPChatIdRef = useRef<number | null>(null);
 
   // Load messages when chat changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!chatId) {
       setMessages([]);
@@ -175,22 +178,25 @@ export default function ChatInterface({
         <SOPHeader chatId={chatId} refreshTrigger={sopRefreshTrigger} sop={currentChat.sop} />
       )}
 
-      {/* Messages */}
+      {/* Messages and Input */}
       {isLoading || (currentChat?.sop && messages.length === 0 && !streamingMessage) ? (
         <div className="flex-1 flex items-center justify-center bg-background">
           <div className="text-foreground-muted">Loading messages...</div>
         </div>
       ) : (
-        <MessageList
+        <>
+          <MessageList
             messages={messages}
             streamingMessage={streamingMessage}
             isStreaming={isStreaming}
             currentToolCall={currentToolCall}
-            isThinking={isThinking} chatId={0}        />
+            isThinking={isThinking}
+            chatId={chatId}
+            onOpenDocument={onOpenDocument}
+          />
+          <ChatInput onSendMessage={handleSendMessage} disabled={isStreaming} />
+        </>
       )}
-
-      {/* Input */}
-      <ChatInput onSendMessage={handleSendMessage} disabled={isStreaming} />
     </div>
   );
 }

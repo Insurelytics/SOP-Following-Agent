@@ -4,9 +4,25 @@
  */
 
 import { executeTool as executeToolFromOpenAI } from '@/lib/openai';
-import { updateSOPRunStep } from '@/lib/db';
+import { updateSOPRunStep, saveAIGeneratedDocument } from '@/lib/db';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import type { SOP, SOPStep } from '@/lib/types/sop';
+
+/**
+ * Default tools provided to non-SOP chats
+ */
+export const DEFAULT_TOOLS: string[] = [];
+
+/**
+ * Gets the list of tools available for a given context
+ * If a SOP is provided, returns its providedTools, otherwise returns DEFAULT_TOOLS
+ */
+export function getAvailableTools(sop?: SOP): string[] {
+  if (sop && sop.providedTools) {
+    return sop.providedTools;
+  }
+  return DEFAULT_TOOLS;
+}
 
 /**
  * Represents a parsed tool call from the model
@@ -50,7 +66,7 @@ function findStepById(sop: SOP, stepId: string): SOPStep | undefined {
 /**
  * Executes the write_document tool
  */
-function executeWriteDocumentTool(stepId: string, content: string, context?: ToolExecutionContext): string {
+function executeWriteDocumentTool(stepId: string, documentName: string, content: string, context?: ToolExecutionContext): string {
   if (!context?.sop) {
     return 'Error: No active SOP found for this chat';
   }
@@ -61,14 +77,28 @@ function executeWriteDocumentTool(stepId: string, content: string, context?: Too
     return `Error: Step "${stepId}" not found in SOP`;
   }
 
-  // Print the document to console
-  console.log('\n' + '='.repeat(80));
-  console.log(`DOCUMENT OUTPUT FOR STEP: ${step.assistantFacingTitle}`);
-  console.log('='.repeat(80));
-  console.log(content);
-  console.log('='.repeat(80) + '\n');
+  try {
+    // Save document to database
+    const savedDoc = saveAIGeneratedDocument(
+      context.chatId,
+      documentName,
+      content,
+      context.sopRunId
+    );
 
-  return 'Document passed all checks and has been displayed to the user!';
+    // Print the document to console
+    console.log('\n' + '='.repeat(80));
+    console.log(`DOCUMENT OUTPUT FOR STEP: ${step.assistantFacingTitle}`);
+    console.log(`Document Name: ${documentName}`);
+    console.log('='.repeat(80));
+    console.log(content);
+    console.log('='.repeat(80) + '\n');
+
+    return `Document "${documentName}" has been saved and displayed to the user! (ID: ${savedDoc.id})`;
+  } catch (error) {
+    console.error('Error saving document:', error);
+    return `Error saving document: ${error instanceof Error ? error.message : 'Unknown error'}`;
+  }
 }
 
 /**
@@ -80,7 +110,7 @@ export function executeSingleTool(toolCall: ToolCall, context?: ToolExecutionCon
     let result: any;
 
     if (toolCall.function.name === 'write_document') {
-      result = executeWriteDocumentTool(args.stepId, args.content, context);
+      result = executeWriteDocumentTool(args.stepId, args.documentName, args.content, context);
     } else {
       result = executeToolFromOpenAI(toolCall.function.name, args);
     }

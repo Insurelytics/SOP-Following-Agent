@@ -133,6 +133,20 @@ export function initializeDatabase() {
     )
   `);
 
+  // Create AI generated documents table (stores documents created by AI via write_document tool)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_generated_documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id INTEGER NOT NULL,
+      run_id INTEGER,
+      document_name TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
+      FOREIGN KEY (run_id) REFERENCES sop_runs(id) ON DELETE CASCADE
+    )
+  `);
+
   console.log('Database initialized successfully');
   
   // Run migrations
@@ -164,6 +178,15 @@ export interface Message {
   tool_call_id?: string | null;
   tool_name?: string | null; // Name of the tool that was called
   tool_output_location?: string | null; // Optional location/reference for tool output
+  created_at: string;
+}
+
+export interface AIGeneratedDocument {
+  id: number;
+  chat_id: number;
+  run_id?: number | null;
+  document_name: string;
+  content: string;
   created_at: string;
 }
 
@@ -543,6 +566,72 @@ export function seedDefaultSOPs(): void {
   } catch (error) {
     console.error('Error seeding default SOPs:', error);
   }
+}
+
+// ============================================================================
+// AI Generated Documents Operations
+// ============================================================================
+
+/**
+ * Save an AI-generated document
+ */
+export function saveAIGeneratedDocument(
+  chatId: number,
+  documentName: string,
+  content: string,
+  runId?: number
+): AIGeneratedDocument {
+  const stmt = db.prepare(`
+    INSERT INTO ai_generated_documents (chat_id, run_id, document_name, content)
+    VALUES (?, ?, ?, ?)
+  `);
+  const result = stmt.run(chatId, runId || null, documentName, content);
+  
+  const selectStmt = db.prepare('SELECT * FROM ai_generated_documents WHERE id = ?');
+  const row = selectStmt.get(result.lastInsertRowid) as any;
+  return {
+    id: row.id,
+    chat_id: row.chat_id,
+    run_id: row.run_id,
+    document_name: row.document_name,
+    content: row.content,
+    created_at: row.created_at,
+  };
+}
+
+/**
+ * Get all AI-generated documents for a chat
+ */
+export function getAIGeneratedDocuments(chatId: number): AIGeneratedDocument[] {
+  const stmt = db.prepare('SELECT * FROM ai_generated_documents WHERE chat_id = ? ORDER BY created_at ASC');
+  const results = stmt.all(chatId) as any[];
+  return results.map(row => ({
+    id: row.id,
+    chat_id: row.chat_id,
+    run_id: row.run_id,
+    document_name: row.document_name,
+    content: row.content,
+    created_at: row.created_at,
+  }));
+}
+
+/**
+ * Get a specific AI-generated document
+ */
+export function getAIGeneratedDocument(documentId: number): AIGeneratedDocument | undefined {
+  const stmt = db.prepare('SELECT * FROM ai_generated_documents WHERE id = ?');
+  const row = stmt.get(documentId) as any;
+  if (row) {
+    return {
+      id: row.id,
+      chat_id: row.chat_id,
+      run_id: row.run_id,
+      document_name: row.document_name,
+      content: row.content,
+      created_at: row.created_at,
+    };
+  }
+  return undefined;
 }
 
 // Auto-initialize database on module import

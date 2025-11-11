@@ -48,12 +48,16 @@ export const writeDocumentTool: ChatCompletionTool = {
           type: 'string',
           description: 'The ID of the current SOP step',
         },
+        documentName: {
+          type: 'string',
+          description: 'The name/title of the document being written',
+        },
         content: {
           type: 'string',
           description: 'The document content to write',
         },
       },
-      required: ['stepId', 'content'],
+      required: ['stepId', 'documentName', 'content'],
     },
   },
 };

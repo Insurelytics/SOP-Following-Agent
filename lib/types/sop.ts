@@ -71,6 +71,9 @@ export interface SOP {
   // The steps in the SOP
   steps: SOPStep[];
 
+  // Tools available to the AI during this SOP
+  providedTools: string[];
+
   // Metadata
   createdAt: string;
   updatedAt: string;

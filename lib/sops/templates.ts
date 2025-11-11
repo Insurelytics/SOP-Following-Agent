@@ -44,6 +44,8 @@ export const PDFSummarySOP: SOP = {
     },
   ],
 
+  providedTools: ['write_document'],
+
   steps: [
     {
       id: 'get-document',
@@ -159,6 +161,8 @@ export const ContentPlanSOP: SOP = {
       ],
     }
   ],
+
+  providedTools: ['write_document'],
 
   steps: [
     {
