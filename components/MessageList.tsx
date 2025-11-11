@@ -65,9 +65,38 @@ export default function MessageList({
               {message.role === 'user' ? (
                 <div className="w-[60%] flex justify-end">
                   <div className="max-w-[70%] rounded-[20px] px-4 py-3 bg-message-user-bg text-white">
+                    {message.content && (
                     <div className="whitespace-pre-wrap break-words">
                       {message.content}
                     </div>
+                    )}
+                    {/* Display file attachments */}
+                    {message.file_attachments && (
+                      <div className="mt-3 space-y-2">
+                        {(() => {
+                          try {
+                            const attachments = JSON.parse(message.file_attachments);
+                            return attachments.map((attachment: any, idx: number) => (
+                              <div key={idx} className="text-sm bg-white/20 rounded px-2 py-1">
+                                {attachment.is_image ? (
+                                  <>
+                                    <div className="text-xs opacity-75">📸 Image:</div>
+                                    <div className="font-medium break-words">{attachment.filename}</div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="text-xs opacity-75">📄 Document:</div>
+                                    <div className="font-medium break-words">{attachment.filename}</div>
+                                  </>
+                                )}
+                              </div>
+                            ));
+                          } catch (e) {
+                            return null;
+                          }
+                        })()}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (

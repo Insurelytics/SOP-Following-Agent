@@ -40,6 +40,11 @@ function migrateDatabase() {
     console.log('Adding metadata column to messages table');
     db.exec('ALTER TABLE messages ADD COLUMN metadata TEXT');
   }
+
+  if (!columnNames.includes('file_attachments')) {
+    console.log('Adding file_attachments column to messages table');
+    db.exec('ALTER TABLE messages ADD COLUMN file_attachments TEXT');
+  }
 }
 
 // Initialize database schema
@@ -183,6 +188,7 @@ export interface Message {
   tool_call_id?: string | null;
   tool_name?: string | null; // Name of the tool that was called
   metadata?: string | null; // JSON string for extensible metadata (e.g., documentName, documentId)
+  file_attachments?: string | null; // JSON string of file attachment metadata array
   created_at: string;
 }
 
@@ -257,12 +263,14 @@ export function updateChatTitle(chatId: number, title: string): void {
 export function saveMessage(
   chatId: number,
   role: 'user' | 'assistant' | 'tool',
-  content: string
+  content: string,
+  fileAttachments?: Array<{ file_id?: string; filename: string; file_type: string; size: number }>
 ): Message {
+  const fileAttachmentsJson = fileAttachments ? JSON.stringify(fileAttachments) : null;
   const stmt = db.prepare(
-    'INSERT INTO messages (chat_id, role, content) VALUES (?, ?, ?)'
+    'INSERT INTO messages (chat_id, role, content, file_attachments) VALUES (?, ?, ?, ?)'
   );
-  const result = stmt.run(chatId, role, content);
+  const result = stmt.run(chatId, role, content, fileAttachmentsJson);
   
   const selectStmt = db.prepare('SELECT * FROM messages WHERE id = ?');
   return selectStmt.get(result.lastInsertRowid) as Message;

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Message, Chat } from '@/lib/db';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
+import { fileToBase64, extractTextFromFile } from '@/lib/file-utils';
 
 interface ChatInterfaceProps {
   chatId: number;
@@ -98,8 +99,71 @@ export default function ChatInterface({
     }
   }, [messages, onOpenDocument]);
 
-  const handleSendMessage = async (message: string) => {
+  const handleSendMessage = async (message: string, files?: File[]) => {
     if (!chatId || isStreaming) return;
+
+    let uploadedFiles: Array<{ file_id?: string; filename: string; file_type: string; size: number; is_image: boolean; is_pdf?: boolean; requires_text_extraction?: boolean; base64?: string; extracted_text?: string; error?: string }> = [];
+
+    // Upload files if provided
+    if (files && files.length > 0) {
+      try {
+        const formData = new FormData();
+        files.forEach((file) => {
+          formData.append('files', file);
+        });
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload files');
+        }
+
+        const uploadResult = await uploadResponse.json();
+        uploadedFiles = uploadResult.files;
+
+        // Check for any upload errors
+        const uploadErrors = uploadedFiles.filter((f) => f.error);
+        if (uploadErrors.length > 0) {
+          console.error('Some files failed to upload:', uploadErrors);
+          // Continue with successfully uploaded files
+          uploadedFiles = uploadedFiles.filter((f) => !f.error);
+        }
+
+        // For images, convert to base64 on the client side
+        // For text-based documents, extract text and store in attachment metadata
+        for (let i = 0; i < uploadedFiles.length; i++) {
+          if (uploadedFiles[i].is_image) {
+            const originalFile = files.find((f) => f.name === uploadedFiles[i].filename);
+            if (originalFile) {
+              try {
+                uploadedFiles[i].base64 = await fileToBase64(originalFile);
+              } catch (e) {
+                console.error(`Error converting image to base64: ${originalFile.name}`, e);
+              }
+            }
+          } else if (uploadedFiles[i].requires_text_extraction) {
+            const originalFile = files.find((f) => f.name === uploadedFiles[i].filename);
+            if (originalFile) {
+              try {
+                const extractedText = await extractTextFromFile(originalFile);
+                // Store extracted text in the file attachment metadata
+                (uploadedFiles[i] as any).extracted_text = extractedText;
+              } catch (e) {
+                console.error(`Error extracting text from file: ${originalFile.name}`, e);
+                (uploadedFiles[i] as any).extracted_text = `Error extracting text: ${e instanceof Error ? e.message : 'Unknown error'}`;
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error uploading files:', error);
+        alert('Failed to upload some files. Please try again.');
+        return;
+      }
+    }
 
     // Only add user message to display if it's not a system command
     if (message !== '[SOP_START]') {
@@ -109,6 +173,7 @@ export default function ChatInterface({
         role: 'user',
         content: message,
         created_at: new Date().toISOString(),
+        file_attachments: uploadedFiles.length > 0 ? JSON.stringify(uploadedFiles) : undefined,
       };
       setMessages((prev) => [...prev, userMessage]);
     }
@@ -123,7 +188,7 @@ export default function ChatInterface({
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId, message }),
+        body: JSON.stringify({ chatId, message, files: uploadedFiles }),
       });
 
       if (!response.ok) {

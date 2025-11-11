@@ -20,6 +20,7 @@ function validateRequest(chatId: unknown, message: unknown): { valid: boolean; e
 /**
  * Prepares the conversation messages with system prompt
  * Properly reconstructs tool call and tool result messages from stored data
+ * Includes file attachments in user messages
  */
 function prepareConversationMessages(
   model: string,
@@ -46,7 +47,59 @@ function prepareConversationMessages(
       } as any;
     }
 
-    // Handle regular user and assistant messages
+    // Handle user messages with file attachments
+    if (msg.role === 'user') {
+      const msgContent: any[] = [];
+      
+      // Add text content
+      if (msg.content) {
+        msgContent.push({
+          type: 'text',
+          text: msg.content,
+        });
+      }
+
+      // Add file attachments
+      if (msg.file_attachments) {
+        try {
+          const attachments = JSON.parse(msg.file_attachments);
+          for (const attachment of attachments) {
+            if (attachment.is_image && attachment.base64) {
+              // Add image as base64 using the correct OpenAI format
+              msgContent.push({
+                type: 'image_url',
+                image_url: {
+                  url: `data:${attachment.file_type};base64,${attachment.base64}`,
+                },
+              });
+            } else if (attachment.file_id && attachment.is_pdf) {
+              // Add PDF file using the correct OpenAI format
+              msgContent.push({
+                type: 'file',
+                file: {
+                  file_id: attachment.file_id,
+                },
+              });
+            } else if (attachment.extracted_text && attachment.requires_text_extraction) {
+              // Add extracted text from text-based documents
+              msgContent.push({
+                type: 'text',
+                text: `**File: ${attachment.filename}**\n${attachment.extracted_text}`,
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing file attachments:', e);
+        }
+      }
+
+      return {
+        role: 'user',
+        content: msgContent.length > 0 ? msgContent : (msg.content || ''),
+      } as any;
+    }
+
+    // Handle regular assistant messages
     return {
       role: msg.role as 'user' | 'assistant' | 'system',
       content: msg.content || '',
@@ -70,7 +123,7 @@ function prepareConversationMessages(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { chatId, message } = body;
+    const { chatId, message, files } = body;
     const model = DEFAULT_MODEL;
     console.log('model', model);
 
@@ -109,7 +162,7 @@ export async function POST(request: NextRequest) {
     
     // Save user message only if it's not a system command
     if (!isSOPStart) {
-      saveMessage(numChatId, 'user', message);
+      saveMessage(numChatId, 'user', message, files);
     }
 
     // Get conversation history
