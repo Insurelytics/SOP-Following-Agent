@@ -81,24 +81,32 @@ export default function MessageList({
                   {message.role === 'tool' ? (
                     <div>
                       {message.tool_name === 'write_document' ? (
-                        <button
-                          onClick={() => {
-                            // Extract document ID from content if available
-                            try {
-                              const content = JSON.parse(message.content || '{}');
-                              const docIdMatch = content.toString().match(/ID: (\d+)/);
-                              if (docIdMatch && onOpenDocument) {
-                                onOpenDocument(parseInt(docIdMatch[1]));
+                        <div className="text-sm text-foreground-muted italic">
+                          Document created:{' '}
+                          <button
+                            onClick={() => {
+                              // Extract document ID from metadata
+                              try {
+                                const metadata = message.metadata ? JSON.parse(message.metadata) : {};
+                                if (metadata.documentId && onOpenDocument) {
+                                  onOpenDocument(parseInt(metadata.documentId));
+                                }
+                              } catch (e) {
+                                console.error('Error parsing tool metadata:', e);
                               }
-                            } catch (e) {
-                              console.error('Error parsing tool result:', e);
-                            }
-                          }}
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary hover:bg-primary-hover text-foreground transition-colors text-sm font-medium"
-                        >
-                          <span>📄</span>
-                          <span>View Document</span>
-                        </button>
+                            }}
+                            className="text-foreground underline hover:opacity-80 transition-opacity cursor-pointer font-normal"
+                          >
+                            {(() => {
+                              try {
+                                const metadata = message.metadata ? JSON.parse(message.metadata) : {};
+                                return metadata.documentName ? `${metadata.documentName}` : 'View Document';
+                              } catch {
+                                return 'View Document';
+                              }
+                            })()}
+                          </button>
+                        </div>
                       ) : (
                         <div className="font-mono text-xs text-foreground-muted">
                           AI Called Tool: {message.tool_name || 'Unknown'}

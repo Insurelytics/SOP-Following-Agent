@@ -4,12 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { Message, Chat } from '@/lib/db';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
-import SOPHeader from './SOPHeader';
 
 interface ChatInterfaceProps {
   chatId: number;
   currentChat?: Chat | null;
   onOpenDocument?: (documentId: number) => void;
+  onSOPRefresh?: () => void;
 }
 
 interface ToolCall {
@@ -21,6 +21,7 @@ export default function ChatInterface({
   chatId,
   currentChat,
   onOpenDocument,
+  onSOPRefresh,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -29,10 +30,12 @@ export default function ChatInterface({
   const [currentToolCall, setCurrentToolCall] = useState<ToolCall | null>(null);
   const [hasContentStarted, setHasContentStarted] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
-  const [sopRefreshTrigger, setSOPRefreshTrigger] = useState(0);
   const lastSOPChatIdRef = useRef<number | null>(null);
+  const lastProcessedMessageIdRef = useRef<number | null>(null);
+  const initialMessagesCountRef = useRef<number>(0);
 
   // Load messages when chat changes
+  // Note: handleSendMessage and currentChat?.sop are excluded from deps as they would cause infinite loops
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!chatId) {
@@ -42,11 +45,18 @@ export default function ChatInterface({
     }
 
     setIsLoading(true);
+    // Reset tracking refs for new chat
+    lastProcessedMessageIdRef.current = null;
+    
     fetch(`/api/messages?chatId=${chatId}`)
       .then((res) => res.json())
       .then((data) => {
         setMessages(data);
         setIsLoading(false);
+        
+        // Track the number of messages we started with for this chat
+        // Documents created after this point will be auto-opened
+        initialMessagesCountRef.current = data.length;
         
         // If chat has an active SOP and no messages, auto-send greeting (but only once per chat)
         if (currentChat?.sop && data.length === 0 && lastSOPChatIdRef.current !== chatId) {
@@ -58,7 +68,35 @@ export default function ChatInterface({
         console.error('Error loading messages:', err);
         setIsLoading(false);
       });
-  }, [chatId]);
+  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-open documents when they are created (but not when loading existing chats)
+  useEffect(() => {
+    // Only auto-open if this is a NEW document created after we loaded this chat
+    // (not an existing document from a previous session)
+    if (messages.length > initialMessagesCountRef.current) {
+      // Find the latest write_document tool message that we haven't processed yet
+      const toolMessages = messages.filter((msg) => msg.role === 'tool' && msg.tool_name === 'write_document');
+      
+      if (toolMessages.length > 0) {
+        const latestToolMessage = toolMessages[toolMessages.length - 1];
+        
+        // Only process if it's a new message (we haven't seen this one before)
+        if (lastProcessedMessageIdRef.current !== latestToolMessage.id) {
+          lastProcessedMessageIdRef.current = latestToolMessage.id;
+          
+          try {
+            const metadata = latestToolMessage.metadata ? JSON.parse(latestToolMessage.metadata) : {};
+            if (metadata.documentId && onOpenDocument) {
+              onOpenDocument(parseInt(metadata.documentId));
+            }
+          } catch (e) {
+            console.error('Error parsing tool metadata:', e);
+          }
+        }
+      }
+    }
+  }, [messages, onOpenDocument]);
 
   const handleSendMessage = async (message: string) => {
     if (!chatId || isStreaming) return;
@@ -131,7 +169,7 @@ export default function ChatInterface({
                 });
               } else if (data.type === 'done') {
                 // Stream complete - trigger SOP header refresh to show step updates
-                setSOPRefreshTrigger(prev => prev + 1);
+                onSOPRefresh?.();
                 break;
               } else if (data.type === 'error') {
                 console.error('Stream error:', data.message);
@@ -173,11 +211,6 @@ export default function ChatInterface({
 
   return (
     <div className="flex-1 flex flex-col h-full relative">
-      {/* SOP Header (if chat has an active SOP run) */}
-      {currentChat?.sop && (
-        <SOPHeader chatId={chatId} refreshTrigger={sopRefreshTrigger} sop={currentChat.sop} />
-      )}
-
       {/* Messages and Input */}
       {isLoading || (currentChat?.sop && messages.length === 0 && !streamingMessage) ? (
         <div className="flex-1 flex items-center justify-center bg-background">

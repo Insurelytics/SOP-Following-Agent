@@ -35,6 +35,11 @@ function migrateDatabase() {
     console.log('Adding tool_output_location column to messages table');
     db.exec('ALTER TABLE messages ADD COLUMN tool_output_location TEXT');
   }
+
+  if (!columnNames.includes('metadata')) {
+    console.log('Adding metadata column to messages table');
+    db.exec('ALTER TABLE messages ADD COLUMN metadata TEXT');
+  }
 }
 
 // Initialize database schema
@@ -177,7 +182,7 @@ export interface Message {
   tool_calls?: string | null; // JSON string of tool calls array
   tool_call_id?: string | null;
   tool_name?: string | null; // Name of the tool that was called
-  tool_output_location?: string | null; // Optional location/reference for tool output
+  metadata?: string | null; // JSON string for extensible metadata (e.g., documentName, documentId)
   created_at: string;
 }
 
@@ -302,12 +307,19 @@ export function saveToolResultMessage(
   toolCallId: string,
   result: any,
   toolName?: string,
-  toolOutputLocation?: string
+  metadata?: Record<string, any>
 ): Message {
   const stmt = db.prepare(
-    'INSERT INTO messages (chat_id, role, content, tool_call_id, tool_name, tool_output_location) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO messages (chat_id, role, content, tool_call_id, tool_name, metadata) VALUES (?, ?, ?, ?, ?, ?)'
   );
-  const resultRow = stmt.run(chatId, 'tool', JSON.stringify(result), toolCallId, toolName || null, toolOutputLocation || null);
+  const resultRow = stmt.run(
+    chatId,
+    'tool',
+    JSON.stringify(result),
+    toolCallId,
+    toolName || null,
+    metadata ? JSON.stringify(metadata) : null
+  );
   
   const selectStmt = db.prepare('SELECT * FROM messages WHERE id = ?');
   return selectStmt.get(resultRow.lastInsertRowid) as Message;

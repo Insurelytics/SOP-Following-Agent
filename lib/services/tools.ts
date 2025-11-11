@@ -44,6 +44,7 @@ export interface ToolExecutionResult {
   args: any;
   result: any;
   error?: Error;
+  metadata?: Record<string, any>; // Extensible metadata for the tool result
 }
 
 /**
@@ -65,16 +66,23 @@ function findStepById(sop: SOP, stepId: string): SOPStep | undefined {
 
 /**
  * Executes the write_document tool
+ * Returns result and metadata for document tracking
  */
-function executeWriteDocumentTool(stepId: string, documentName: string, content: string, context?: ToolExecutionContext): string {
+function executeWriteDocumentTool(stepId: string, documentName: string, content: string, context?: ToolExecutionContext): { result: string; metadata: Record<string, any> } {
   if (!context?.sop) {
-    return 'Error: No active SOP found for this chat';
+    return {
+      result: 'Error: No active SOP found for this chat',
+      metadata: {},
+    };
   }
 
   // Find the step
   const step = findStepById(context.sop, stepId);
   if (!step) {
-    return `Error: Step "${stepId}" not found in SOP`;
+    return {
+      result: `Error: Step "${stepId}" not found in SOP`,
+      metadata: {},
+    };
   }
 
   try {
@@ -94,23 +102,35 @@ function executeWriteDocumentTool(stepId: string, documentName: string, content:
     console.log(content);
     console.log('='.repeat(80) + '\n');
 
-    return `Document "${documentName}" has been saved and displayed to the user! (ID: ${savedDoc.id})`;
+    return {
+      result: `Document "${documentName}" has been saved and displayed to the user! (ID: ${savedDoc.id})`,
+      metadata: {
+        documentName,
+        documentId: savedDoc.id,
+      },
+    };
   } catch (error) {
     console.error('Error saving document:', error);
-    return `Error saving document: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    return {
+      result: `Error saving document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      metadata: {},
+    };
   }
 }
 
 /**
- * Executes a single tool call and returns the result
+ * Executes a single tool call and returns the result with metadata
  */
 export function executeSingleTool(toolCall: ToolCall, context?: ToolExecutionContext): ToolExecutionResult {
   try {
     const args = JSON.parse(toolCall.function.arguments);
     let result: any;
+    let metadata: Record<string, any> | undefined;
 
     if (toolCall.function.name === 'write_document') {
-      result = executeWriteDocumentTool(args.stepId, args.documentName, args.content, context);
+      const toolResult = executeWriteDocumentTool(args.stepId, args.documentName, args.content, context);
+      result = toolResult.result;
+      metadata = toolResult.metadata;
     } else {
       result = executeToolFromOpenAI(toolCall.function.name, args);
     }
@@ -119,6 +139,7 @@ export function executeSingleTool(toolCall: ToolCall, context?: ToolExecutionCon
       toolCall,
       args,
       result,
+      metadata,
     };
   } catch (error) {
     return {

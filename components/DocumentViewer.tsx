@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 
 interface Document {
@@ -27,6 +27,8 @@ export default function DocumentViewer({
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch documents for the chat
   useEffect(() => {
@@ -70,7 +72,25 @@ export default function DocumentViewer({
   const handleSelectDocument = (doc: Document) => {
     setSelectedDocument(doc);
     onDocumentSelect?.(doc.id);
+    setIsDropdownOpen(false);
   };
+
+  // Handle clicking outside dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
 
   if (isLoading) {
     return (
@@ -103,41 +123,57 @@ export default function DocumentViewer({
 
   return (
     <div className="h-full flex flex-col bg-background-secondary">
-      {/* Document List Header with Dropdown - only show if multiple documents */}
-      {documents.length > 1 && (
-        <div className="border-b border-border bg-background-tertiary px-4 py-3 flex items-center gap-2">
-          <select
-            value={selectedDocument?.id || ''}
-            onChange={(e) => {
-              const docId = parseInt(e.target.value);
-              const doc = documents.find(d => d.id === docId);
-              if (doc) {
-                handleSelectDocument(doc);
-              }
-            }}
-            className="px-3 py-1.5 rounded-md text-sm bg-background-secondary text-foreground border border-input-border focus:outline-none focus:border-input-focus hover:border-foreground-muted transition-colors max-w-xs"
-          >
-            {documents.map((doc) => (
-              <option key={doc.id} value={doc.id}>
-                {doc.document_name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-background-tertiary rounded-md transition-colors text-foreground-muted hover:text-foreground ml-auto"
-            title="Close document viewer"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      )}
+      {/* Unified Header with optional dropdown for multiple documents */}
+      {selectedDocument && (
+        <div className="border-b border-border bg-background-tertiary px-4 py-3 flex items-center justify-between">
+          {/* Title with optional dropdown indicator */}
+          <div ref={dropdownRef} className="relative">
+            <button
+              onClick={() => documents.length > 1 && setIsDropdownOpen(!isDropdownOpen)}
+              className={`flex items-center gap-2 text-sm font-semibold text-foreground ${
+                documents.length > 1 ? 'hover:opacity-70 transition-opacity cursor-pointer' : ''
+              }`}
+              title={documents.length > 1 ? 'Click to select another document' : ''}
+            >
+              <span>{selectedDocument.document_name}</span>
+              {documents.length > 1 && (
+                <svg
+                  className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 9l6 6 6-6"
+                  />
+                </svg>
+              )}
+            </button>
 
-      {/* Simple header with just close button - shown when only one document */}
-      {documents.length === 1 && (
-        <div className="border-b border-border bg-background-tertiary px-4 py-3 flex items-center justify-end">
+            {/* Dropdown menu */}
+            {isDropdownOpen && documents.length > 1 && (
+              <div className="absolute top-full left-0 mt-1 bg-background-tertiary border border-border rounded-md shadow-lg z-50 min-w-max">
+                {documents.map((doc) => (
+                  <button
+                    key={doc.id}
+                    onClick={() => handleSelectDocument(doc)}
+                    className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                      selectedDocument.id === doc.id
+                        ? 'bg-action text-white'
+                        : 'text-foreground hover:bg-background-secondary'
+                    }`}
+                  >
+                    {doc.document_name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Close button */}
           <button
             onClick={onClose}
             className="p-1 hover:bg-background-tertiary rounded-md transition-colors text-foreground-muted hover:text-foreground"
@@ -153,13 +189,8 @@ export default function DocumentViewer({
       {/* Document Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {selectedDocument ? (
-          <div>
-            <h2 className="text-lg font-semibold text-foreground mb-4">
-              {selectedDocument.document_name}
-            </h2>
-            <div className="prose prose-sm sm:prose-base dark:prose-invert prose-headings:my-2 prose-p:my-2 prose-li:my-0 prose-code:bg-background prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background prose-pre:p-3 prose-pre:rounded max-w-none">
-              <ReactMarkdown>{selectedDocument.content}</ReactMarkdown>
-            </div>
+          <div className="prose prose-sm sm:prose-base dark:prose-invert prose-headings:my-2 prose-p:my-2 prose-li:my-0 prose-code:bg-background prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background prose-pre:p-3 prose-pre:rounded max-w-none">
+            <ReactMarkdown>{selectedDocument.content}</ReactMarkdown>
           </div>
         ) : (
           <div className="flex items-center justify-center h-full text-foreground-muted">

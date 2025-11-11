@@ -182,8 +182,8 @@ export async function POST(request: NextRequest) {
                   // Save the assistant's tool call message
                   saveToolCallMessage(numChatId, msg.tool_calls);
                 } else if (msg.role === 'tool' && 'tool_call_id' in msg && msg.tool_call_id) {
-                  // Save the tool's result message with tool name
-                  saveToolResultMessage(numChatId, msg.tool_call_id, msg.content, streamData.name);
+                  // Save the tool's result message with tool name and metadata
+                  saveToolResultMessage(numChatId, msg.tool_call_id, msg.content, streamData.name, streamData.metadata);
                 }
               }
             }

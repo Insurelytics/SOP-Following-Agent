@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import ChatInterface from '@/components/ChatInterface';
 import DocumentViewer from '@/components/DocumentViewer';
+import SOPHeader from '@/components/SOPHeader';
 import { Chat } from '@/lib/db';
 import type { SOP } from '@/lib/types/sop';
 
@@ -16,6 +17,7 @@ export default function Home() {
   const [leftPanelWidth, setLeftPanelWidth] = useState(50); // percentage
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [sopRefreshTrigger, setSOPRefreshTrigger] = useState(0);
 
   // Load chats and SOPs on mount
   useEffect(() => {
@@ -23,6 +25,11 @@ export default function Home() {
     loadSOPs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Close document viewer when switching chats
+  useEffect(() => {
+    setIsDocumentViewerOpen(false);
+  }, [currentChatId]);
 
   const loadChats = async () => {
     try {
@@ -172,46 +179,59 @@ export default function Home() {
         onSelectSOP={handleSelectSOPTemplate}
       />
       {currentChatId ? (
-        <div className="flex-1 flex overflow-hidden">
-          {/* Chat Interface */}
-          <div
-            className="flex flex-col"
-            style={{ width: `${isDocumentViewerOpen ? leftPanelWidth : 100}%` }}
-          >
-            <ChatInterface
-              chatId={currentChatId}
-              currentChat={chats.find(c => c.id === currentChatId) || null}
-              onOpenDocument={(docId) => {
-                setSelectedDocumentId(docId);
-                setIsDocumentViewerOpen(true);
-              }}
-            />
-          </div>
-
-          {/* Resizable Divider */}
-          {isDocumentViewerOpen && (
-            <div
-              onMouseDown={handleMouseDown}
-              className={`w-1 bg-border hover:bg-primary cursor-col-resize transition-colors user-select-none ${
-                isDragging ? 'bg-primary' : ''
-              }`}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* SOP Header - Fixed at top */}
+          {chats.find(c => c.id === currentChatId)?.sop && (
+            <SOPHeader 
+              chatId={currentChatId} 
+              refreshTrigger={sopRefreshTrigger}
+              sop={chats.find(c => c.id === currentChatId)?.sop!} 
             />
           )}
-
-          {/* Document Viewer */}
-          {isDocumentViewerOpen && (
+          
+          {/* Chat and Document Viewer Container */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Chat Interface */}
             <div
-              className="flex flex-col overflow-hidden"
-              style={{ width: `${100 - leftPanelWidth}%` }}
+              className="flex flex-col"
+              style={{ width: `${isDocumentViewerOpen ? leftPanelWidth : 100}%` }}
             >
-              <DocumentViewer
+              <ChatInterface
                 chatId={currentChatId}
-                selectedDocumentId={selectedDocumentId}
-                onDocumentSelect={(docId) => setSelectedDocumentId(docId)}
-                onClose={() => setIsDocumentViewerOpen(false)}
+                currentChat={chats.find(c => c.id === currentChatId) || null}
+                onOpenDocument={(docId) => {
+                  setSelectedDocumentId(docId);
+                  setIsDocumentViewerOpen(true);
+                }}
+                onSOPRefresh={() => setSOPRefreshTrigger(prev => prev + 1)}
               />
             </div>
-          )}
+
+            {/* Resizable Divider */}
+            {isDocumentViewerOpen && (
+              <div
+                onMouseDown={handleMouseDown}
+                className={`w-1 bg-border hover:bg-primary cursor-col-resize transition-colors user-select-none ${
+                  isDragging ? 'bg-primary' : ''
+                }`}
+              />
+            )}
+
+            {/* Document Viewer */}
+            {isDocumentViewerOpen && (
+              <div
+                className="flex flex-col overflow-hidden"
+                style={{ width: `${100 - leftPanelWidth}%` }}
+              >
+                <DocumentViewer
+                  chatId={currentChatId}
+                  selectedDocumentId={selectedDocumentId}
+                  onDocumentSelect={(docId) => setSelectedDocumentId(docId)}
+                  onClose={() => setIsDocumentViewerOpen(false)}
+                />
+              </div>
+            )}
+          </div>
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-foreground-muted">

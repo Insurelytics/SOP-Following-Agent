@@ -14,6 +14,7 @@ export interface StreamData {
   args?: any;
   result?: any;
   message?: string;
+  metadata?: Record<string, any>; // Extensible metadata (e.g., documentName, documentId)
   messagesToSave?: ChatCompletionMessageParam[]; // Tool call and result messages to persist
 }
 
@@ -166,6 +167,7 @@ export async function* handleChatStream(
             name: toolCall.function.name,
             args: executionResult.args,
             result: executionResult.result,
+            metadata: executionResult.metadata,
             messagesToSave: toolMessages,
           };
 
