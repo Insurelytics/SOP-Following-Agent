@@ -3,6 +3,7 @@
 import { Message } from '@/lib/db';
 import { useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { Image as ImageIcon, FileText } from 'lucide-react';
 
 interface ToolCall {
   name: string;
@@ -59,9 +60,36 @@ export default function MessageList({
             <div
               key={message.id}
               className={`flex mt-4 ${
-                message.role === 'user' ? 'justify-center' : 'justify-center'
+                message.role === 'user' ? 'flex-col items-center' : 'justify-center'
               }`}
             >
+              {/* Display file attachments above user message */}
+              {message.role === 'user' && message.file_attachments && (
+                <div className="mb-2 flex flex-wrap gap-2 justify-end w-[60%]">
+                  {(() => {
+                    try {
+                      const attachments = JSON.parse(message.file_attachments);
+                      return attachments.map((attachment: any, idx: number) => (
+                        <div key={idx} className="flex items-center gap-2 bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 transition-colors duration-200">
+                          <div className="flex-shrink-0">
+                            {attachment.is_image ? (
+                              <ImageIcon width="24" height="24" className="text-white opacity-80" />
+                            ) : (
+                              <FileText width="24" height="24" className="text-white opacity-80" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs opacity-70 font-medium">{attachment.is_image ? 'Image' : 'Document'}</div>
+                            <div className="text-sm font-medium truncate text-white">{attachment.filename}</div>
+                          </div>
+                        </div>
+                      ));
+                    } catch (e) {
+                      return null;
+                    }
+                  })()}
+                </div>
+              )}
               {message.role === 'user' ? (
                 <div className="w-[60%] flex justify-end">
                   <div className="max-w-[70%] rounded-[20px] px-4 py-3 bg-message-user-bg text-white">
@@ -69,33 +97,6 @@ export default function MessageList({
                     <div className="whitespace-pre-wrap break-words">
                       {message.content}
                     </div>
-                    )}
-                    {/* Display file attachments */}
-                    {message.file_attachments && (
-                      <div className="mt-3 space-y-2">
-                        {(() => {
-                          try {
-                            const attachments = JSON.parse(message.file_attachments);
-                            return attachments.map((attachment: any, idx: number) => (
-                              <div key={idx} className="text-sm bg-white/20 rounded px-2 py-1">
-                                {attachment.is_image ? (
-                                  <>
-                                    <div className="text-xs opacity-75">📸 Image:</div>
-                                    <div className="font-medium break-words">{attachment.filename}</div>
-                                  </>
-                                ) : (
-                                  <>
-                                    <div className="text-xs opacity-75">📄 Document:</div>
-                                    <div className="font-medium break-words">{attachment.filename}</div>
-                                  </>
-                                )}
-                              </div>
-                            ));
-                          } catch (e) {
-                            return null;
-                          }
-                        })()}
-                      </div>
                     )}
                   </div>
                 </div>
