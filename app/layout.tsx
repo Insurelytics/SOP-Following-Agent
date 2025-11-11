@@ -3,8 +3,8 @@ import "./globals.css";
 import ThemeInitializer from "@/components/ThemeInitializer";
 
 export const metadata: Metadata = {
-  title: "GPT-5 Chat Interface",
-  description: "Chat interface for GPT-5-nano and GPT-5-mini",
+  title: "SOP Following Agent",
+  description: "AI agent for following Standard Operating Procedures",
 };
 
 export default function RootLayout({

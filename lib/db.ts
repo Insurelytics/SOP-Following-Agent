@@ -25,6 +25,16 @@ function migrateDatabase() {
     console.log('Adding tool_call_id column to messages table');
     db.exec('ALTER TABLE messages ADD COLUMN tool_call_id TEXT');
   }
+
+  if (!columnNames.includes('tool_name')) {
+    console.log('Adding tool_name column to messages table');
+    db.exec('ALTER TABLE messages ADD COLUMN tool_name TEXT');
+  }
+
+  if (!columnNames.includes('tool_output_location')) {
+    console.log('Adding tool_output_location column to messages table');
+    db.exec('ALTER TABLE messages ADD COLUMN tool_output_location TEXT');
+  }
 }
 
 // Initialize database schema
@@ -59,6 +69,8 @@ export function initializeDatabase() {
       content TEXT,
       tool_calls TEXT,
       tool_call_id TEXT,
+      tool_name TEXT,
+      tool_output_location TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
     )
@@ -150,6 +162,8 @@ export interface Message {
   content: string | null;
   tool_calls?: string | null; // JSON string of tool calls array
   tool_call_id?: string | null;
+  tool_name?: string | null; // Name of the tool that was called
+  tool_output_location?: string | null; // Optional location/reference for tool output
   created_at: string;
 }
 
@@ -263,12 +277,14 @@ export function saveToolCallMessage(
 export function saveToolResultMessage(
   chatId: number,
   toolCallId: string,
-  result: any
+  result: any,
+  toolName?: string,
+  toolOutputLocation?: string
 ): Message {
   const stmt = db.prepare(
-    'INSERT INTO messages (chat_id, role, content, tool_call_id) VALUES (?, ?, ?, ?)'
+    'INSERT INTO messages (chat_id, role, content, tool_call_id, tool_name, tool_output_location) VALUES (?, ?, ?, ?, ?, ?)'
   );
-  const resultRow = stmt.run(chatId, 'tool', JSON.stringify(result), toolCallId);
+  const resultRow = stmt.run(chatId, 'tool', JSON.stringify(result), toolCallId, toolName || null, toolOutputLocation || null);
   
   const selectStmt = db.prepare('SELECT * FROM messages WHERE id = ?');
   return selectStmt.get(resultRow.lastInsertRowid) as Message;

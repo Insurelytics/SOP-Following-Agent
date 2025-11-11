@@ -77,9 +77,8 @@ export default function MessageList({
                   }`}
                 >
                   {message.role === 'tool' ? (
-                    <div className="font-mono text-xs">
-                      <span className="text-foreground-muted">Tool result: </span>
-                      {message.content}
+                    <div className="font-mono text-xs text-foreground-muted">
+                      AI Called Tool: {message.tool_name || 'Unknown'}
                     </div>
                   ) : (
                     <div className="max-w-none break-words prose prose-sm sm:prose-base lg:prose-lg prose-headings:my-2 prose-p:my-2 prose-li:my-0 prose-code:bg-background-tertiary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background-tertiary prose-pre:p-3 prose-pre:rounded dark:prose-invert">

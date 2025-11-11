@@ -16,16 +16,19 @@ export const PDFSummarySOP: SOP = {
   description: 'Upload or paste text and get a structured summary with key takeaways',
   version: '1.0.0',
 
-  requiredDocuments: [
+  generalInstructions: 'You are helping a user distill large amounts of information into concise, actionable summaries. The user wants to quickly understand the main points and key takeaways without reading the entire document. Be thorough but concise, focusing on what matters most.',
+
+  userDocuments: [
     {
       id: 'source_document',
       name: 'Source Document',
       description: 'The content to be summarized (paste text or upload file)',
       type: 'text' as unknown as 'text' | 'file',
+      required: true,
     },
   ],
 
-  formats: [
+  assistantOutputFormats: [
     {
       id: 'pdf-summary',
       name: 'PDF Summary',
@@ -92,22 +95,26 @@ export const ContentPlanSOP: SOP = {
   description: 'Create a monthly content plan (12 or 18 videos) for a personal brand',
   version: '1.0.0',
 
-  requiredDocuments: [
+  generalInstructions: 'You are a content strategist working with an employee at a media agency (the user) to build an on-brand video content strategy. Your role is to analyze the given client\'s business, voice, and target audience alongside competitive research to create a content plan that drives engagement and sales. Be strategic but practical—balance variety with consistency, and ensure every recommendation aligns with both the client\'s goals and their audience\'s preferences.',
+
+  userDocuments: [
     {
       id: 'client_onboarding',
       name: 'Client Onboarding Doc',
       description: 'Business info, offers, target audience, brand goals, signature frameworks (paste text or upload file)',
       type: 'text' as unknown as 'text' | 'file',
+      required: true,
     },
     {
       id: 'comps_list',
       name: 'Comps List / 10x10',
       description: '5-10 accounts to emulate with notes on tone, topic, delivery (paste text or upload file)',
       type: 'text' as unknown as 'text' | 'file',
+      required: true,
     },
   ],
 
-  formats: [
+  assistantOutputFormats: [
     {
       id: 'style-guide-ratio',
       name: 'Style Guide Ratio Doc',

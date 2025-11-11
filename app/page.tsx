@@ -134,14 +134,8 @@ export default function Home() {
       ) : (
         <div className="flex-1 flex items-center justify-center text-foreground-muted">
           <div className="text-center">
-            <h1 className="text-3xl font-bold mb-4 text-foreground">GPT-5 Chat Interface</h1>
+            <h1 className="text-3xl font-bold mb-4 text-foreground">SOP Following Agent</h1>
             <p className="text-lg mb-6">Create a new chat to get started</p>
-            <button
-              onClick={handleNewChat}
-              className="px-6 py-3 bg-action hover:bg-primary-hover text-white rounded-lg transition-colors duration-200 font-medium"
-            >
-              Create New Chat
-            </button>
           </div>
         </div>
       )}

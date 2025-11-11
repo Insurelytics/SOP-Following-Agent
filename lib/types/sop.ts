@@ -53,16 +53,20 @@ export interface SOP {
   description: string;
   version: string;
 
+  // Custom instructions for the AI about the context of this SOP
+  generalInstructions?: string;
+
   // Required documents that must be uploaded once per run
-  requiredDocuments: {
+  userDocuments: {
     id: string;
     name: string;
     description: string;
     type: 'text' | 'file';
+    required: boolean;
   }[];
 
   // Reusable format definitions that can be referenced in steps
-  formats?: SOPFormat[];
+  assistantOutputFormats?: SOPFormat[];
 
   // The steps in the SOP
   steps: SOPStep[];

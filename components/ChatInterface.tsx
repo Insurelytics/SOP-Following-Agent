@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Message, Chat } from '@/lib/db';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
@@ -28,6 +28,7 @@ export default function ChatInterface({
   const [hasContentStarted, setHasContentStarted] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [sopRefreshTrigger, setSOPRefreshTrigger] = useState(0);
+  const lastSOPChatIdRef = useRef<number | null>(null);
 
   // Load messages when chat changes
   useEffect(() => {
@@ -43,6 +44,12 @@ export default function ChatInterface({
       .then((data) => {
         setMessages(data);
         setIsLoading(false);
+        
+        // If chat has an active SOP and no messages, auto-send greeting (but only once per chat)
+        if (currentChat?.sop && data.length === 0 && lastSOPChatIdRef.current !== chatId) {
+          lastSOPChatIdRef.current = chatId;
+          handleSendMessage('[SOP_START]');
+        }
       })
       .catch((err) => {
         console.error('Error loading messages:', err);
@@ -53,15 +60,17 @@ export default function ChatInterface({
   const handleSendMessage = async (message: string) => {
     if (!chatId || isStreaming) return;
 
-    // Optimistically add user message
-    const userMessage: Message = {
-      id: Date.now(),
-      chat_id: chatId,
-      role: 'user',
-      content: message,
-      created_at: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
+    // Only add user message to display if it's not a system command
+    if (message !== '[SOP_START]') {
+      const userMessage: Message = {
+        id: Date.now(),
+        chat_id: chatId,
+        role: 'user',
+        content: message,
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, userMessage]);
+    }
 
     setIsStreaming(true);
     setStreamingMessage('');
@@ -167,7 +176,7 @@ export default function ChatInterface({
       )}
 
       {/* Messages */}
-      {isLoading ? (
+      {isLoading || (currentChat?.sop && messages.length === 0 && !streamingMessage) ? (
         <div className="flex-1 flex items-center justify-center bg-background">
           <div className="text-foreground-muted">Loading messages...</div>
         </div>

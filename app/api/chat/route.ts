@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { writeDocumentTool, DEFAULT_MODEL } from '@/lib/openai';
 import { saveMessage, getMessages, getChat, getActiveSOPRun, getSOP, saveToolCallMessage, saveToolResultMessage, updateSOPRunStep } from '@/lib/db';
-import { createSystemPrompt } from '@/lib/services/prompt';
+import { createSystemPrompt, isInitialSOPStart } from '@/lib/services/prompt';
 import { handleChatStream } from '@/lib/services/chat-stream';
 import { determineNextStep } from '@/lib/services/stepManager';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
@@ -104,8 +104,13 @@ export async function POST(request: NextRequest) {
       console.log('SOP data:', sop);
     }
 
-    // Save user message
-    saveMessage(numChatId, 'user', message);
+    // Check if this is an initial SOP start command
+    const isSOPStart = isInitialSOPStart(message);
+    
+    // Save user message only if it's not a system command
+    if (!isSOPStart) {
+      saveMessage(numChatId, 'user', message);
+    }
 
     // Get conversation history
     const history = getMessages(numChatId);
@@ -119,11 +124,11 @@ export async function POST(request: NextRequest) {
       currentStepId: sopRun?.currentStepId,
     };
 
-    // Determine next step before generating AI response (if SOP is active)
+    // Determine next step before generating AI response (if SOP is active and not a start command)
     let currentStepId = sopRun?.currentStepId;
     let stepDecision: { stepId: string } | null = null;
     
-    if (sop && currentStepId) {
+    if (sop && currentStepId && !isSOPStart) {
       const currentStep = sop.steps.find(s => s.id === currentStepId);
       if (currentStep) {
         try {
@@ -177,8 +182,8 @@ export async function POST(request: NextRequest) {
                   // Save the assistant's tool call message
                   saveToolCallMessage(numChatId, msg.tool_calls);
                 } else if (msg.role === 'tool' && 'tool_call_id' in msg && msg.tool_call_id) {
-                  // Save the tool's result message
-                  saveToolResultMessage(numChatId, msg.tool_call_id, msg.content);
+                  // Save the tool's result message with tool name
+                  saveToolResultMessage(numChatId, msg.tool_call_id, msg.content, streamData.name);
                 }
               }
             }

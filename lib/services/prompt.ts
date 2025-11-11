@@ -11,6 +11,7 @@ function findStepById(sop: SOP, stepId: string): SOPStep | undefined {
   return sop.steps.find(s => s.id === stepId);
 }
 
+
 /**
  * Creates the system prompt for the conversation
  * Includes current date, model information, and optional SOP context with current step
@@ -26,6 +27,17 @@ export function createSystemPrompt(model: string, sop?: SOP, currentStepId?: str
   let prompt = `You are ${model}. Today's date is ${currentDate}.`;
 
   if (sop) {
+    // Add general instructions at the top if present
+    if (sop.generalInstructions) {
+      prompt += `\n\n## Context\n\n${sop.generalInstructions}`;
+    }
+
+    // Add the full SOP structure as JSON (without generalInstructions, already shown in Context)
+    const sopForJSON = { ...sop };
+    delete sopForJSON.generalInstructions;
+    prompt += `\n\n## SOP (Standard Operating Procedure)\n\n${JSON.stringify(sopForJSON, null, 2)}`;
+
+    // Add current step details
     const currentStep = currentStepId ? findStepById(sop, currentStepId) : sop.steps[0];
     
     let validNextSteps: string[] = [];
@@ -35,9 +47,9 @@ export function createSystemPrompt(model: string, sop?: SOP, currentStepId?: str
         : currentStep.nextStep;
     }
 
-    prompt += `\n\n## SOP (Standard Operating Procedure)\n\nYou are running this workflow:\n\n${JSON.stringify(sop, null, 2)}`;
-
-    prompt += `\n\n## Current Step\n\nYou are currently on this step:\n\n${JSON.stringify(currentStep, null, 2)}`;
+    if (currentStep) {
+      prompt += `\n\n## Current Step\n\n${JSON.stringify(currentStep, null, 2)}`;
+    }
 
     if (validNextSteps.length > 0) {
       prompt += `\n\n## Valid Next Steps\n\nWhen you complete the current step, you can advance to one of these steps:\n${validNextSteps.map(s => `- ${s}`).join('\n')}`;
@@ -47,5 +59,12 @@ export function createSystemPrompt(model: string, sop?: SOP, currentStepId?: str
   }
 
   return prompt;
+}
+
+/**
+ * Checks if a message is the initial SOP start command
+ */
+export function isInitialSOPStart(message: string): boolean {
+  return message === '[SOP_START]';
 }
 
