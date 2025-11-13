@@ -1,6 +1,6 @@
 /**
  * OpenAI client and tool configuration
- * Handles initialization, tool definitions, and tool execution
+ * Handles initialization and tool definitions
  */
 
 import OpenAI from 'openai';
@@ -23,93 +23,35 @@ export const openai = new OpenAI({
 // ============================================================================
 
 /**
- * Get model from environment variable, default to gpt-5-nano
+ * Get model from environment variable, default to gpt-4o-mini
  */
-export const DEFAULT_MODEL = process.env.MODEL || 'gpt-5-nano';
-console.log('DEFAULT_MODEL', DEFAULT_MODEL);
+export const DEFAULT_MODEL = process.env.MODEL || 'gpt-4o-mini';
 
 // ============================================================================
 // Tool Definitions
 // ============================================================================
 
 /**
- * Write document tool for SOP workflows
- * Allows the AI to write and display a formatted document
+ * Example add tool for arithmetic operations
  */
-export const writeDocumentTool: ChatCompletionTool = {
+export const addTool: ChatCompletionTool = {
   type: 'function',
   function: {
-    name: 'write_document',
-    description: 'Writes a formatted document for the current SOP step. The document is validated against the step requirements and displayed to the user automatically.',
+    name: 'add',
+    description: 'Adds two numbers together',
     parameters: {
       type: 'object',
       properties: {
-        stepId: {
-          type: 'string',
-          description: 'The ID of the current SOP step',
+        a: {
+          type: 'number',
+          description: 'The first number',
         },
-        documentName: {
-          type: 'string',
-          description: 'The name/title of the document being written',
-        },
-        content: {
-          type: 'string',
-          description: 'The document content to write',
+        b: {
+          type: 'number',
+          description: 'The second number',
         },
       },
-      required: ['stepId', 'documentName', 'content'],
+      required: ['a', 'b'],
     },
   },
 };
-
-// ============================================================================
-// Tool Implementations
-// ============================================================================
-
-/**
- * Executes the add tool
- * @param a - First number
- * @param b - Second number
- * @returns The sum of a and b
- */
-function executeAddTool(a: number, b: number): number {
-  return a + b;
-}
-
-/**
- * Dispatcher to execute any tool by name
- * @param toolName - Name of the tool to execute
- * @param args - Arguments to pass to the tool
- * @returns Result of tool execution
- * @throws Error if tool name is unknown
- */
-export function executeTool(toolName: string, args: any): any {
-  switch (toolName) {
-    case 'add':
-      return executeAddTool(args.a, args.b);
-    default:
-      throw new Error(`Unknown tool: ${toolName}`);
-  }
-}
-
-// ============================================================================
-// Types
-// ============================================================================
-
-/**
- * Type for conversation messages with tool support
- */
-export interface ConversationMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string | null;
-  name?: string;
-  tool_calls?: Array<{
-    id: string;
-    type: 'function';
-    function: {
-      name: string;
-      arguments: string;
-    };
-  }>;
-  tool_call_id?: string;
-}

@@ -1,16 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Message, Chat } from '@/lib/db';
+import { useState, useEffect } from 'react';
+import { Message } from '@/lib/db';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
 import { fileToBase64, extractTextFromFile } from '@/lib/file-utils';
 
 interface ChatInterfaceProps {
   chatId: number;
-  currentChat?: Chat | null;
-  onOpenDocument?: (documentId: number) => void;
-  onSOPRefresh?: () => void;
 }
 
 interface ToolCall {
@@ -20,9 +17,6 @@ interface ToolCall {
 
 export default function ChatInterface({
   chatId,
-  currentChat,
-  onOpenDocument,
-  onSOPRefresh,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -31,13 +25,8 @@ export default function ChatInterface({
   const [currentToolCall, setCurrentToolCall] = useState<ToolCall | null>(null);
   const [hasContentStarted, setHasContentStarted] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
-  const lastSOPChatIdRef = useRef<number | null>(null);
-  const lastProcessedMessageIdRef = useRef<number | null>(null);
-  const initialMessagesCountRef = useRef<number>(0);
 
   // Load messages when chat changes
-  // Note: handleSendMessage and currentChat?.sop are excluded from deps as they would cause infinite loops
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!chatId) {
       setMessages([]);
@@ -46,58 +35,18 @@ export default function ChatInterface({
     }
 
     setIsLoading(true);
-    // Reset tracking refs for new chat
-    lastProcessedMessageIdRef.current = null;
     
     fetch(`/api/messages?chatId=${chatId}`)
       .then((res) => res.json())
       .then((data) => {
         setMessages(data);
         setIsLoading(false);
-        
-        // Track the number of messages we started with for this chat
-        // Documents created after this point will be auto-opened
-        initialMessagesCountRef.current = data.length;
-        
-        // If chat has an active SOP and no messages, auto-send greeting (but only once per chat)
-        if (currentChat?.sop && data.length === 0 && lastSOPChatIdRef.current !== chatId) {
-          lastSOPChatIdRef.current = chatId;
-          handleSendMessage('[SOP_START]');
-        }
       })
       .catch((err) => {
         console.error('Error loading messages:', err);
         setIsLoading(false);
       });
-  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-open documents when they are created (but not when loading existing chats)
-  useEffect(() => {
-    // Only auto-open if this is a NEW document created after we loaded this chat
-    // (not an existing document from a previous session)
-    if (messages.length > initialMessagesCountRef.current) {
-      // Find the latest write_document tool message that we haven't processed yet
-      const toolMessages = messages.filter((msg) => msg.role === 'tool' && msg.tool_name === 'write_document');
-      
-      if (toolMessages.length > 0) {
-        const latestToolMessage = toolMessages[toolMessages.length - 1];
-        
-        // Only process if it's a new message (we haven't seen this one before)
-        if (lastProcessedMessageIdRef.current !== latestToolMessage.id) {
-          lastProcessedMessageIdRef.current = latestToolMessage.id;
-          
-          try {
-            const metadata = latestToolMessage.metadata ? JSON.parse(latestToolMessage.metadata) : {};
-            if (metadata.documentId && onOpenDocument) {
-              onOpenDocument(parseInt(metadata.documentId));
-            }
-          } catch (e) {
-            console.error('Error parsing tool metadata:', e);
-          }
-        }
-      }
-    }
-  }, [messages, onOpenDocument]);
+  }, [chatId]);
 
   const handleSendMessage = async (message: string, files?: File[]) => {
     if (!chatId || isStreaming) return;
@@ -165,18 +114,16 @@ export default function ChatInterface({
       }
     }
 
-    // Only add user message to display if it's not a system command
-    if (message !== '[SOP_START]') {
-      const userMessage: Message = {
-        id: Date.now(),
-        chat_id: chatId,
-        role: 'user',
-        content: message,
-        created_at: new Date().toISOString(),
-        file_attachments: uploadedFiles.length > 0 ? JSON.stringify(uploadedFiles) : undefined,
-      };
-      setMessages((prev) => [...prev, userMessage]);
-    }
+    // Add user message to display
+    const userMessage: Message = {
+      id: Date.now(),
+      chat_id: chatId,
+      role: 'user',
+      content: message,
+      created_at: new Date().toISOString(),
+      file_attachments: uploadedFiles.length > 0 ? JSON.stringify(uploadedFiles) : undefined,
+    };
+    setMessages((prev) => [...prev, userMessage]);
 
     setIsStreaming(true);
     setStreamingMessage('');
@@ -233,8 +180,6 @@ export default function ChatInterface({
                   id: data.name,
                 });
               } else if (data.type === 'done') {
-                // Stream complete - trigger SOP header refresh to show step updates
-                onSOPRefresh?.();
                 break;
               } else if (data.type === 'error') {
                 console.error('Stream error:', data.message);
@@ -277,7 +222,7 @@ export default function ChatInterface({
   return (
     <div className="flex-1 flex flex-col h-full relative">
       {/* Messages and Input */}
-      {isLoading || (currentChat?.sop && messages.length === 0 && !streamingMessage) ? (
+      {isLoading ? (
         <div className="flex-1 flex items-center justify-center bg-background">
           <div className="text-foreground-muted">Loading messages...</div>
         </div>
@@ -290,7 +235,6 @@ export default function ChatInterface({
             currentToolCall={currentToolCall}
             isThinking={isThinking}
             chatId={chatId}
-            onOpenDocument={onOpenDocument}
           />
           <ChatInput onSendMessage={handleSendMessage} disabled={isStreaming} />
         </>

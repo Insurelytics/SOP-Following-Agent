@@ -16,9 +16,10 @@ interface FileUploadResponse {
 
 /**
  * POST /api/upload - Upload files to OpenAI
- * Handles both image and document uploads
+ * Handles both image and document/file uploads
  * For images: Returns metadata (client will handle base64 conversion)
- * For documents: Uploads to OpenAI and returns file_id
+ * For PDFs: Uploads to OpenAI and returns file_id
+ * For other documents: Returns metadata for client-side text extraction
  */
 export async function POST(request: NextRequest) {
   try {

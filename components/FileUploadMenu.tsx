@@ -89,7 +89,7 @@ export default function FileUploadMenu({ onFilesSelected, disabled, onFileTypeDe
             className="w-full text-left px-4 py-3 hover:bg-background-tertiary transition-colors duration-200 flex items-center gap-3 text-foreground"
           >
             <Upload width="18" height="18" />
-            <span>Upload Images and Documents</span>
+            <span>Upload Images and Files</span>
           </button>
         </div>
       )}

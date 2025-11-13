@@ -3,26 +3,7 @@
  * Handles parsing, validation, and execution of AI-called tools
  */
 
-import { executeTool as executeToolFromOpenAI } from '@/lib/openai';
-import { updateSOPRunStep, saveAIGeneratedDocument } from '@/lib/db';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import type { SOP, SOPStep } from '@/lib/types/sop';
-
-/**
- * Default tools provided to non-SOP chats
- */
-export const DEFAULT_TOOLS: string[] = [];
-
-/**
- * Gets the list of tools available for a given context
- * If a SOP is provided, returns its providedTools, otherwise returns DEFAULT_TOOLS
- */
-export function getAvailableTools(sop?: SOP): string[] {
-  if (sop && sop.providedTools) {
-    return sop.providedTools;
-  }
-  return DEFAULT_TOOLS;
-}
 
 /**
  * Represents a parsed tool call from the model
@@ -44,7 +25,7 @@ export interface ToolExecutionResult {
   args: any;
   result: any;
   error?: Error;
-  metadata?: Record<string, any>; // Extensible metadata for the tool result
+  metadata?: Record<string, any>;
 }
 
 /**
@@ -52,94 +33,33 @@ export interface ToolExecutionResult {
  */
 export interface ToolExecutionContext {
   chatId: number;
-  sop?: SOP;
-  sopRunId?: number;
-  currentStepId?: string;
-}
-
-/**
- * Helper to find a step by ID in a SOP
- */
-function findStepById(sop: SOP, stepId: string): SOPStep | undefined {
-  return sop.steps.find(s => s.id === stepId);
-}
-
-/**
- * Executes the write_document tool
- * Returns result and metadata for document tracking
- */
-function executeWriteDocumentTool(stepId: string, documentName: string, content: string, context?: ToolExecutionContext): { result: string; metadata: Record<string, any> } {
-  if (!context?.sop) {
-    return {
-      result: 'Error: No active SOP found for this chat',
-      metadata: {},
-    };
-  }
-
-  // Find the step
-  const step = findStepById(context.sop, stepId);
-  if (!step) {
-    return {
-      result: `Error: Step "${stepId}" not found in SOP`,
-      metadata: {},
-    };
-  }
-
-  try {
-    // Save document to database
-    const savedDoc = saveAIGeneratedDocument(
-      context.chatId,
-      documentName,
-      content,
-      context.sopRunId
-    );
-
-    // Print the document to console
-    console.log('\n' + '='.repeat(80));
-    console.log(`DOCUMENT OUTPUT FOR STEP: ${step.assistantFacingTitle}`);
-    console.log(`Document Name: ${documentName}`);
-    console.log('='.repeat(80));
-    console.log(content);
-    console.log('='.repeat(80) + '\n');
-
-    return {
-      result: `Document "${documentName}" has been saved and displayed to the user! (ID: ${savedDoc.id})`,
-      metadata: {
-        documentName,
-        documentId: savedDoc.id,
-      },
-    };
-  } catch (error) {
-    console.error('Error saving document:', error);
-    return {
-      result: `Error saving document: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      metadata: {},
-    };
-  }
 }
 
 /**
  * Executes a single tool call and returns the result with metadata
  */
-export function executeSingleTool(toolCall: ToolCall, context?: ToolExecutionContext): ToolExecutionResult {
+export function executeSingleTool(toolCall: ToolCall, _context?: ToolExecutionContext): ToolExecutionResult {
   try {
     const args = JSON.parse(toolCall.function.arguments);
     let result: any;
-    let metadata: Record<string, any> | undefined;
 
-    if (toolCall.function.name === 'write_document') {
-      const toolResult = executeWriteDocumentTool(args.stepId, args.documentName, args.content, context);
-      result = toolResult.result;
-      metadata = toolResult.metadata;
+    if (toolCall.function.name === 'add') {
+      // Simple add tool example
+      const { a, b } = args;
+      if (typeof a !== 'number' || typeof b !== 'number') {
+        result = `Error: add tool requires numeric arguments. Received a=${a}, b=${b}`;
+      } else {
+        result = `The sum of ${a} and ${b} is ${a + b}`;
+      }
     } else {
-      result = executeToolFromOpenAI(toolCall.function.name, args);
+      result = `Tool "${toolCall.function.name}" is not available`;
     }
-
+    
     return {
       toolCall,
       args,
       result,
-      metadata,
+      metadata: {},
     };
   } catch (error) {
     return {

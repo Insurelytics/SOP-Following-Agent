@@ -1,15 +1,15 @@
-# SOP-Following Agent
+# AI Chat Starter
 
-A ChatGPT-like interface for following Standard Operating Procedures with AI assistance.
+A minimal ChatGPT-like chat interface with streaming responses and tool support.
 
-## What Makes This Different
+## What's Included
 
-Unlike traditional chat interfaces, this agent is **grounded in structured workflows**. The key differentiators are:
-
-- **SOP-Aware**: Users select a Standard Operating Procedure, and the AI follows it step-by-step
-- **Smart Information Gathering**: The AI uses structured forms to request exactly what it needs, rather than generic conversation
-- **Editable SOPs**: Users can modify procedures in real-time, and the AI adapts to follow the updated workflow
-- **Tool Integration**: The AI can execute tools, generate structured results, and request information—all guided by the SOP
+- **Chat Interface**: Clean, modern UI for multi-turn conversations
+- **Streaming Responses**: Real-time response streaming with Server-Sent Events
+- **Tool Support**: Example "add" tool demonstrating function calling capability
+- **File Uploads**: Support for image and text file attachments
+- **Chat History**: Persistent storage of conversations
+- **Theme Picker**: Light/dark theme support
 
 ## Tech Stack
 
@@ -32,7 +32,6 @@ Visit `http://localhost:3000`
 - `/app` - Next.js app router pages and API routes
 - `/components` - React UI components (ChatInterface, Sidebar, etc.)
 - `/lib` - Core services (database, OpenAI integration, chat logic)
-- `/scripts` - Database initialization
 
 ## Environment Variables
 
@@ -40,3 +39,21 @@ Visit `http://localhost:3000`
 OPENAI_API_KEY=your_key_here
 MODEL=gpt-5-nano
 ```
+
+## Using as a Starter
+
+This is designed as a minimal starter for building chat-based applications. To customize:
+
+1. **Add Tools**: Edit `lib/openai.ts` to define new tools and `lib/services/tools.ts` to implement them
+2. **Modify System Prompt**: Update `lib/services/prompt.ts` to customize AI behavior
+3. **Extend Database**: Add new tables/operations to `lib/db.ts` as needed
+4. **Design Components**: Customize styling in components and `app/globals.css`
+
+## Database Schema
+
+The starter includes a clean schema with:
+- **users**: User accounts
+- **chats**: Conversation threads
+- **messages**: Individual messages with support for tool calls and file attachments
+
+For new projects, simply delete `chat.db` and the schema will be recreated on startup.

@@ -1,9 +1,8 @@
 import { NextRequest } from 'next/server';
-import { writeDocumentTool, DEFAULT_MODEL } from '@/lib/openai';
-import { saveMessage, getMessages, getChat, getActiveSOPRun, getSOP, saveToolCallMessage, saveToolResultMessage, updateSOPRunStep } from '@/lib/db';
-import { createSystemPrompt, isInitialSOPStart } from '@/lib/services/prompt';
+import { DEFAULT_MODEL, addTool } from '@/lib/openai';
+import { saveMessage, getMessages, getChat, saveToolCallMessage, saveToolResultMessage } from '@/lib/db';
+import { createSystemPrompt } from '@/lib/services/prompt';
 import { handleChatStream } from '@/lib/services/chat-stream';
-import { determineNextStep } from '@/lib/services/stepManager';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import type { ToolExecutionContext } from '@/lib/services/tools';
 
@@ -20,13 +19,11 @@ function validateRequest(chatId: unknown, message: unknown): { valid: boolean; e
 /**
  * Prepares the conversation messages with system prompt
  * Properly reconstructs tool call and tool result messages from stored data
- * Includes file attachments in user messages
+ * Includes file attachments in user messages (images via base64)
  */
 function prepareConversationMessages(
   model: string,
-  history: any[],
-  sop?: any,
-  currentStepId?: string
+  history: any[]
 ): ChatCompletionMessageParam[] {
   const conversationMessages: ChatCompletionMessageParam[] = history.map((msg) => {
     // Handle assistant messages with tool calls
@@ -59,7 +56,7 @@ function prepareConversationMessages(
         });
       }
 
-      // Add file attachments
+      // Add file attachments (images)
       if (msg.file_attachments) {
         try {
           const attachments = JSON.parse(msg.file_attachments);
@@ -71,20 +68,6 @@ function prepareConversationMessages(
                 image_url: {
                   url: `data:${attachment.file_type};base64,${attachment.base64}`,
                 },
-              });
-            } else if (attachment.file_id && attachment.is_pdf) {
-              // Add PDF file using the correct OpenAI format
-              msgContent.push({
-                type: 'file',
-                file: {
-                  file_id: attachment.file_id,
-                },
-              });
-            } else if (attachment.extracted_text && attachment.requires_text_extraction) {
-              // Add extracted text from text-based documents
-              msgContent.push({
-                type: 'text',
-                text: `**File: ${attachment.filename}**\n${attachment.extracted_text}`,
               });
             }
           }
@@ -107,7 +90,7 @@ function prepareConversationMessages(
   });
 
   // Prepend system prompt
-  const systemPrompt = createSystemPrompt(model, sop, currentStepId);
+  const systemPrompt = createSystemPrompt(model);
   conversationMessages.unshift({
     role: 'system',
     content: systemPrompt,
@@ -125,7 +108,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { chatId, message, files } = body;
     const model = DEFAULT_MODEL;
-    console.log('model', model);
 
     // Validate request
     const validation = validateRequest(chatId, message);
@@ -148,61 +130,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Fetch active SOP for this chat if one exists
-    const sopRun = getActiveSOPRun(numChatId);
-    let sop = undefined;
-    if (sopRun) {
-      sop = getSOP(sopRun.sopId);
-      console.log('Found active SOP run:', sopRun.sopId);
-      console.log('SOP data:', sop);
-    }
-
-    // Check if this is an initial SOP start command
-    const isSOPStart = isInitialSOPStart(message);
-    
-    // Save user message only if it's not a system command
-    if (!isSOPStart) {
-      saveMessage(numChatId, 'user', message, files);
-    }
+    // Save user message
+    saveMessage(numChatId, 'user', message, files);
 
     // Get conversation history
     const history = getMessages(numChatId);
-    const conversationMessages = prepareConversationMessages(model, history, sop, sopRun?.currentStepId);
+    const conversationMessages = prepareConversationMessages(model, history);
 
     // Prepare tool execution context
     const toolContext: ToolExecutionContext = {
       chatId: numChatId,
-      sop,
-      sopRunId: sopRun?.id,
-      currentStepId: sopRun?.currentStepId,
     };
-
-    // Determine next step before generating AI response (if SOP is active and not a start command)
-    let currentStepId = sopRun?.currentStepId;
-    let stepDecision: { stepId: string } | null = null;
-    
-    if (sop && currentStepId && !isSOPStart) {
-      const currentStep = sop.steps.find(s => s.id === currentStepId);
-      if (currentStep) {
-        try {
-          stepDecision = await determineNextStep(message, currentStep, sop);
-          
-          // Update the step if it changed
-          if (stepDecision.stepId !== currentStepId && sopRun) {
-            updateSOPRunStep(sopRun.id, stepDecision.stepId);
-            currentStepId = stepDecision.stepId;
-            toolContext.currentStepId = currentStepId;
-            console.log(`Step transition: ${sopRun.currentStepId} → ${stepDecision.stepId}`);
-          }
-        } catch (error) {
-          console.error('Error determining next step:', error);
-          // Continue with current step if step determination fails
-        }
-      }
-    }
-
-    // Recreate conversation messages with potentially updated step
-    const updatedConversationMessages = prepareConversationMessages(model, history, sop, currentStepId);
 
     // Create a ReadableStream for Server-Sent Events
     const encoder = new TextEncoder();
@@ -211,18 +149,8 @@ export async function POST(request: NextRequest) {
         try {
           let fullResponse = '';
 
-          // Send step decision if one was made
-          if (stepDecision && stepDecision.stepId !== sopRun?.currentStepId) {
-            const stepDecisionData = JSON.stringify({
-              type: 'step_transition',
-              previousStep: sopRun?.currentStepId,
-              nextStep: stepDecision.stepId,
-            });
-            controller.enqueue(encoder.encode(`data: ${stepDecisionData}\n\n`));
-          }
-
-          // Stream the chat completion with tool support
-          for await (const streamData of handleChatStream(model, updatedConversationMessages, [writeDocumentTool], toolContext)) {
+          // Stream the chat completion with available tools
+          for await (const streamData of handleChatStream(model, conversationMessages, [addTool], toolContext)) {
             // Accumulate full response for saving
             if (streamData.type === 'content') {
               fullResponse += streamData.content || '';

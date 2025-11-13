@@ -3,21 +3,23 @@
  * Manages user chats and their lifecycle
  */
 
-import { getOrCreateUser, createChat as createChatInDb, getChatsForUserWithSOPs } from '@/lib/db';
+import { getOrCreateUser, createChat as createChatInDb, getChatsForUser } from '@/lib/db';
 import { DEFAULT_MODEL } from '@/lib/openai';
 
 /**
- * Gets or creates the default user and returns their chats with SOP data
+ * Gets or creates the default user and returns their chats
+ * TODO: Accept authenticated user from request context instead of username parameter
  */
 export function getUserChats(username: string = 'dev-test') {
   const user = getOrCreateUser(username);
-  const chats = getChatsForUserWithSOPs(user.id);
+  const chats = getChatsForUser(user.id);
   return Array.isArray(chats) ? chats : [];
 }
 
 /**
  * Creates a new chat for the default user
  * @param username - The username to create a chat for
+ * TODO: Accept authenticated user from request context instead of username parameter
  */
 export function createNewChat(username: string = 'dev-test') {
   const user = getOrCreateUser(username);

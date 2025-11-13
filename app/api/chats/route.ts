@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserChats, createNewChat } from '@/lib/services/chat';
 
+// TODO: Replace with actual user authentication (extract from session/JWT)
 const DEFAULT_USERNAME = 'dev-test';
 
 /**

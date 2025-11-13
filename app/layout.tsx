@@ -3,8 +3,8 @@ import "./globals.css";
 import ThemeInitializer from "@/components/ThemeInitializer";
 
 export const metadata: Metadata = {
-  title: "SOP Following Agent",
-  description: "AI agent for following Standard Operating Procedures",
+  title: "AI Chat",
+  description: "Chat with AI",
 };
 
 export default function RootLayout({

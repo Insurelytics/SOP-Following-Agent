@@ -17,7 +17,6 @@ interface MessageListProps {
   currentToolCall?: ToolCall | null;
   isThinking?: boolean;
   chatId: number;
-  onOpenDocument?: (documentId: number) => void;
 }
 
 export default function MessageList({
@@ -27,7 +26,6 @@ export default function MessageList({
   currentToolCall,
   isThinking,
   chatId,
-  onOpenDocument,
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -79,7 +77,7 @@ export default function MessageList({
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-xs opacity-70 font-medium">{attachment.is_image ? 'Image' : 'Document'}</div>
+                            <div className="text-xs opacity-70 font-medium">{attachment.is_image ? 'Image' : 'File'}</div>
                             <div className="text-sm font-medium truncate text-white">{attachment.filename}</div>
                           </div>
                         </div>
@@ -109,39 +107,15 @@ export default function MessageList({
                   }`}
                 >
                   {message.role === 'tool' ? (
-                    <div>
-                      {message.tool_name === 'write_document' ? (
-                        <div className="text-sm text-foreground-muted italic">
-                          Document created:{' '}
-                          <button
-                            onClick={() => {
-                              // Extract document ID from metadata
-                              try {
-                                const metadata = message.metadata ? JSON.parse(message.metadata) : {};
-                                if (metadata.documentId && onOpenDocument) {
-                                  onOpenDocument(parseInt(metadata.documentId));
-                                }
-                              } catch (e) {
-                                console.error('Error parsing tool metadata:', e);
-                              }
-                            }}
-                            className="text-foreground underline hover:opacity-80 transition-opacity cursor-pointer font-normal"
-                          >
-                            {(() => {
-                              try {
-                                const metadata = message.metadata ? JSON.parse(message.metadata) : {};
-                                return metadata.documentName ? `${metadata.documentName}` : 'View Document';
-                              } catch {
-                                return 'View Document';
-                              }
-                            })()}
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="font-mono text-xs text-foreground-muted">
-                          AI Called Tool: {message.tool_name || 'Unknown'}
-                        </div>
-                      )}
+                    <div className="font-mono text-xs text-foreground-muted">
+                      {(() => {
+                        try {
+                          const meta = message.metadata ? JSON.parse(message.metadata) : {};
+                          return `Tool: ${meta.toolName || 'Unknown'}`;
+                        } catch {
+                          return 'Tool: Unknown';
+                        }
+                      })()}
                     </div>
                   ) : (
                     <div className="max-w-none break-words prose prose-sm sm:prose-base lg:prose-lg prose-headings:my-2 prose-p:my-2 prose-li:my-0 prose-code:bg-background-tertiary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background-tertiary prose-pre:p-3 prose-pre:rounded dark:prose-invert">
