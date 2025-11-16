@@ -62,6 +62,116 @@ export const writeDocumentTool: ChatCompletionTool = {
   },
 };
 
+/**
+ * Display SOP to user tool for SOP management
+ * Retrieves and displays an existing SOP
+ */
+export const displaySOPTool: ChatCompletionTool = {
+  type: 'function',
+  function: {
+    name: 'display_sop_to_user',
+    description: 'Retrieves and displays an existing SOP to the user. This tool returns the complete SOP JSON object that you can then modify and pass to propose_sop_edits. Use this first when you need to edit or review an existing SOP. Example: call with sopId "pdf-summary" to get the PDF Summary SOP structure, which you can then examine and modify for the user.',
+    parameters: {
+      type: 'object',
+      properties: {
+        sopId: {
+          type: 'string',
+          description: 'The unique ID of the SOP to retrieve (e.g., "pdf-summary", "content-plan", "sop-management")',
+        },
+      },
+      required: ['sopId'],
+    },
+  },
+};
+
+/**
+ * Propose SOP edits tool for SOP management
+ * Validates and previews proposed edits without saving
+ */
+export const proposeSOPEditsTool: ChatCompletionTool = {
+  type: 'function',
+  function: {
+    name: 'propose_sop_edits',
+    description: 'Accepts the full edited SOP object, and displays it to the user for approval.  Has no existing context or knowledge of the SOP, so it must be passed in every time.',
+    parameters: {
+      type: 'object',
+      properties: {
+        modifiedSOP: {
+          type: 'string',
+          description: 'REQUIRED: The complete modified SOP as a JSON string with all fields (id, name, displayName, description, version, generalInstructions, userDocuments, assistantOutputFormats, steps, providedTools, createdAt, updatedAt)',
+        },
+      },
+      required: ['modifiedSOP'],
+    },
+  },
+};
+
+/**
+ * Overwrite SOP tool for SOP management
+ * Applies approved edits and saves the modified SOP to the database
+ */
+export const overwriteSOPTool: ChatCompletionTool = {
+  type: 'function',
+  function: {
+    name: 'overwrite_sop',
+    description: 'Saves approved changes to database. Accepts the full edited SOP as a JSON string. Only call after user approval from propose_sop_edits.',
+    parameters: {
+      type: 'object',
+      properties: {
+        modifiedSOP: {
+          type: 'string',
+          description: 'REQUIRED: The complete modified SOP as a JSON string with all fields',
+        },
+      },
+      required: ['modifiedSOP'],
+    },
+  },
+};
+
+/**
+ * Create SOP tool for SOP management
+ * Creates a new SOP and saves it to the database
+ */
+export const createSOPTool: ChatCompletionTool = {
+  type: 'function',
+  function: {
+    name: 'create_sop',
+    description: 'Creates and saves new SOP to database. Accepts the full new SOP as a JSON string. Only call after user approval from propose_sop_edits.',
+    parameters: {
+      type: 'object',
+      properties: {
+        newSOP: {
+          type: 'string',
+          description: 'REQUIRED: Complete new SOP as a JSON string with all fields (id, name, displayName, description, version, generalInstructions, steps, assistantOutputFormats, providedTools, userDocuments)',
+        },
+      },
+      required: ['newSOP'],
+    },
+  },
+};
+
+/**
+ * Delete SOP tool for SOP management
+ * Deletes a SOP from the system (prevents deletion of built-in SOPs)
+ */
+export const deleteSOPTool: ChatCompletionTool = {
+  type: 'function',
+  function: {
+    name: 'delete_sop',
+    description: 'Deletes a SOP from the system and cannot be undone. Built-in SOPs (pdf-summary, content-plan, sop-management) are protected and cannot be deleted. Only call this when the user explicitly requests deletion of a custom SOP they created. The tool will verify the SOP exists and is not protected before deleting.',
+    parameters: {
+      type: 'object',
+      properties: {
+        sopId: {
+          type: 'string',
+          description: 'The ID of the SOP to delete (e.g., "pdf-summary", "content-plan", or a custom SOP ID). Cannot delete built-in SOPs.',
+        },
+      },
+      required: ['sopId'],
+    },
+  },
+};
+
 // ============================================================================
 // Tool Implementations
 // ============================================================================

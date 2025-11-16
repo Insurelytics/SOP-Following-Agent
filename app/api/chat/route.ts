@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { writeDocumentTool, DEFAULT_MODEL } from '@/lib/openai';
+import { writeDocumentTool, displaySOPTool, proposeSOPEditsTool, overwriteSOPTool, createSOPTool, deleteSOPTool, DEFAULT_MODEL } from '@/lib/openai';
 import { saveMessage, getMessages, getChat, getActiveSOPRun, getSOP, saveToolCallMessage, saveToolResultMessage, updateSOPRunStep } from '@/lib/db';
 import { createSystemPrompt, isInitialSOPStart } from '@/lib/services/prompt';
 import { handleChatStream } from '@/lib/services/chat-stream';
@@ -153,8 +153,6 @@ export async function POST(request: NextRequest) {
     let sop = undefined;
     if (sopRun) {
       sop = getSOP(sopRun.sopId);
-      console.log('Found active SOP run:', sopRun.sopId);
-      console.log('SOP data:', sop);
     }
 
     // Check if this is an initial SOP start command
@@ -222,7 +220,7 @@ export async function POST(request: NextRequest) {
           }
 
           // Stream the chat completion with tool support
-          for await (const streamData of handleChatStream(model, updatedConversationMessages, [writeDocumentTool], toolContext)) {
+          for await (const streamData of handleChatStream(model, updatedConversationMessages, [writeDocumentTool, displaySOPTool, proposeSOPEditsTool, overwriteSOPTool, createSOPTool, deleteSOPTool], toolContext)) {
             // Accumulate full response for saving
             if (streamData.type === 'content') {
               fullResponse += streamData.content || '';

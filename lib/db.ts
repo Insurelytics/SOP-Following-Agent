@@ -370,6 +370,14 @@ export function getAllSOPs(): SOP[] {
 }
 
 /**
+ * Delete a SOP template by ID
+ */
+export function deleteSOP(sopId: string): void {
+  const stmt = db.prepare('DELETE FROM sops WHERE id = ?');
+  stmt.run(sopId);
+}
+
+/**
  * Create a new SOP run
  */
 export function createSOPRun(chatId: number, sopId: string, firstStepId: string): SOPRun {

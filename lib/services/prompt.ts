@@ -22,6 +22,11 @@ function generateToolInstructions(tools: string[]): string {
 - DO briefly confirm that you created a document ("I've created a document...")
 - DO proceed directly to the next step or ask what the user would like to do next
 The tool is the final output; your response should only explain what was done.`,
+    display_sop_to_user: `**display_sop_to_user**: Retrieves a SOP. Pass sopId. Modify the returned object and pass it to propose_sop_edits.`,
+    propose_sop_edits: `**propose_sop_edits**: Validates and previews changes without saving. Pass sopId and the complete modified SOP object. Increment patch version.`,
+    overwrite_sop: `**overwrite_sop**: Saves approved changes to database. Pass sopId and the complete SOP object. Call only after user approval from propose_sop_edits.`,
+    create_sop: `**create_sop**: Creates and saves a new SOP. Pass the complete new SOP object with all fields. Call only after user approval from propose_sop_edits.`,
+    delete_sop: `**delete_sop**: Deletes a SOP permanently. Cannot delete: pdf-summary, content-plan, sop-management. Call only on explicit user request.`,
   };
 
   const relevantInstructions = tools
@@ -95,4 +100,3 @@ export function createSystemPrompt(model: string, sop?: SOP, currentStepId?: str
 export function isInitialSOPStart(message: string): boolean {
   return message === '[SOP_START]';
 }
-
