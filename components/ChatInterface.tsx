@@ -10,6 +10,8 @@ interface ChatInterfaceProps {
   chatId: number;
   currentChat?: Chat | null;
   onOpenDocument?: (documentId: number) => void;
+  onOpenSOP?: () => void;
+  onRefreshSOPDrafts?: () => void;
   onSOPRefresh?: () => void;
 }
 
@@ -22,6 +24,8 @@ export default function ChatInterface({
   chatId,
   currentChat,
   onOpenDocument,
+  onOpenSOP,
+  onRefreshSOPDrafts,
   onSOPRefresh,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -33,6 +37,7 @@ export default function ChatInterface({
   const [isThinking, setIsThinking] = useState(false);
   const lastSOPChatIdRef = useRef<number | null>(null);
   const lastProcessedMessageIdRef = useRef<number | null>(null);
+  const lastProcessedSOPDraftIdRef = useRef<number | null>(null);
   const initialMessagesCountRef = useRef<number>(0);
 
   // Load messages when chat changes
@@ -98,6 +103,36 @@ export default function ChatInterface({
       }
     }
   }, [messages, onOpenDocument]);
+
+  // Auto-open SOP drafts when they are created (from display_sop_to_user, propose_sop_edits, etc.)
+  useEffect(() => {
+    if (messages.length > initialMessagesCountRef.current) {
+      // Look for SOP-related tool calls
+      const sopToolNames = ['display_sop_to_user', 'propose_sop_edits', 'overwrite_sop', 'create_sop'];
+      const toolMessages = messages.filter((msg) => msg.role === 'tool' && msg.tool_name && sopToolNames.includes(msg.tool_name));
+      
+      if (toolMessages.length > 0) {
+        const latestToolMessage = toolMessages[toolMessages.length - 1];
+        
+        // Only process if it's a new message (we haven't seen this one before)
+        if (lastProcessedSOPDraftIdRef.current !== latestToolMessage.id) {
+          lastProcessedSOPDraftIdRef.current = latestToolMessage.id;
+          
+          try {
+            const metadata = latestToolMessage.metadata ? JSON.parse(latestToolMessage.metadata) : {};
+            if (metadata.draftId) {
+              // Refresh drafts so SOPViewer picks up the new one
+              onRefreshSOPDrafts?.();
+              // Open the SOP viewer
+              onOpenSOP?.();
+            }
+          } catch (e) {
+            console.error('Error parsing SOP tool metadata:', e);
+          }
+        }
+      }
+    }
+  }, [messages, onOpenSOP, onRefreshSOPDrafts]);
 
   const handleSendMessage = async (message: string, files?: File[]) => {
     if (!chatId || isStreaming) return;
@@ -291,6 +326,7 @@ export default function ChatInterface({
             isThinking={isThinking}
             chatId={chatId}
             onOpenDocument={onOpenDocument}
+            onOpenSOP={onOpenSOP}
           />
           <ChatInput onSendMessage={handleSendMessage} disabled={isStreaming} />
         </>

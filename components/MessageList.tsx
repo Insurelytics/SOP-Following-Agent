@@ -18,6 +18,7 @@ interface MessageListProps {
   isThinking?: boolean;
   chatId: number;
   onOpenDocument?: (documentId: number) => void;
+  onOpenSOP?: () => void;
 }
 
 export default function MessageList({
@@ -28,6 +29,7 @@ export default function MessageList({
   isThinking,
   chatId,
   onOpenDocument,
+  onOpenSOP,
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -133,6 +135,33 @@ export default function MessageList({
                                 return metadata.documentName ? `${metadata.documentName}` : 'View Document';
                               } catch {
                                 return 'View Document';
+                              }
+                            })()}
+                          </button>
+                        </div>
+                      ) : ['display_sop_to_user', 'propose_sop_edits', 'overwrite_sop', 'create_sop'].includes(message.tool_name || '') ? (
+                        <div className="text-sm text-foreground-muted italic">
+                          {(() => {
+                            const toolName = message.tool_name || '';
+                            const displayMap: Record<string, string> = {
+                              'display_sop_to_user': 'SOP displayed',
+                              'propose_sop_edits': 'Proposed edits',
+                              'overwrite_sop': 'SOP updated',
+                              'create_sop': 'SOP created',
+                            };
+                            return displayMap[toolName] || 'SOP updated';
+                          })()}
+                          :{' '}
+                          <button
+                            onClick={() => onOpenSOP?.()}
+                            className="text-foreground underline hover:opacity-80 transition-opacity cursor-pointer font-normal"
+                          >
+                            {(() => {
+                              try {
+                                const metadata = message.metadata ? JSON.parse(message.metadata) : {};
+                                return metadata.displayName || 'View SOP';
+                              } catch {
+                                return 'View SOP';
                               }
                             })()}
                           </button>

@@ -157,6 +157,18 @@ export function initializeDatabase() {
     )
   `);
 
+  // Create SOP drafts table (stores SOPs displayed/proposed/created by AI for viewing)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sop_drafts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id INTEGER NOT NULL,
+      sop_data JSON NOT NULL,
+      source_tool TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+    )
+  `);
+
   console.log('Database initialized successfully');
   
   // Run migrations
@@ -198,6 +210,14 @@ export interface AIGeneratedDocument {
   run_id?: number | null;
   document_name: string;
   content: string;
+  created_at: string;
+}
+
+export interface SOPDraft {
+  id: number;
+  chat_id: number;
+  sop_data: SOP;
+  source_tool?: string; // 'display_sop_to_user', 'propose_sop_edits', 'overwrite_sop', 'create_sop'
   created_at: string;
 }
 
@@ -656,6 +676,83 @@ export function getAIGeneratedDocument(documentId: number): AIGeneratedDocument 
       run_id: row.run_id,
       document_name: row.document_name,
       content: row.content,
+      created_at: row.created_at,
+    };
+  }
+  return undefined;
+}
+
+// SOP Draft operations
+/**
+ * Save a draft SOP for viewing in a chat (e.g., from display_sop_to_user, propose_sop_edits)
+ */
+export function saveSOPDraft(
+  chatId: number,
+  sop: SOP,
+  sourceTool?: string
+): SOPDraft {
+  const stmt = db.prepare(`
+    INSERT INTO sop_drafts (chat_id, sop_data, source_tool)
+    VALUES (?, ?, ?)
+  `);
+  const result = stmt.run(chatId, JSON.stringify(sop), sourceTool || null);
+  
+  const selectStmt = db.prepare('SELECT * FROM sop_drafts WHERE id = ?');
+  const row = selectStmt.get(result.lastInsertRowid) as any;
+  return {
+    id: row.id,
+    chat_id: row.chat_id,
+    sop_data: JSON.parse(row.sop_data),
+    source_tool: row.source_tool,
+    created_at: row.created_at,
+  };
+}
+
+/**
+ * Get all SOP drafts for a chat
+ */
+export function getSOPDrafts(chatId: number): SOPDraft[] {
+  const stmt = db.prepare('SELECT * FROM sop_drafts WHERE chat_id = ? ORDER BY created_at ASC');
+  const results = stmt.all(chatId) as any[];
+  return results.map(row => ({
+    id: row.id,
+    chat_id: row.chat_id,
+    sop_data: JSON.parse(row.sop_data),
+    source_tool: row.source_tool,
+    created_at: row.created_at,
+  }));
+}
+
+/**
+ * Get the most recent SOP draft for a chat
+ */
+export function getLatestSOPDraft(chatId: number): SOPDraft | undefined {
+  const stmt = db.prepare('SELECT * FROM sop_drafts WHERE chat_id = ? ORDER BY created_at DESC LIMIT 1');
+  const row = stmt.get(chatId) as any;
+  if (row) {
+    return {
+      id: row.id,
+      chat_id: row.chat_id,
+      sop_data: JSON.parse(row.sop_data),
+      source_tool: row.source_tool,
+      created_at: row.created_at,
+    };
+  }
+  return undefined;
+}
+
+/**
+ * Get a specific SOP draft by ID
+ */
+export function getSOPDraft(draftId: number): SOPDraft | undefined {
+  const stmt = db.prepare('SELECT * FROM sop_drafts WHERE id = ?');
+  const row = stmt.get(draftId) as any;
+  if (row) {
+    return {
+      id: row.id,
+      chat_id: row.chat_id,
+      sop_data: JSON.parse(row.sop_data),
+      source_tool: row.source_tool,
       created_at: row.created_at,
     };
   }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import ChatInterface from '@/components/ChatInterface';
 import DocumentViewer from '@/components/DocumentViewer';
+import SOPViewer from '@/components/SOPViewer';
 import SOPHeader from '@/components/SOPHeader';
 import { Chat } from '@/lib/db';
 import type { SOP } from '@/lib/types/sop';
@@ -14,10 +15,12 @@ export default function Home() {
   const [currentChatId, setCurrentChatId] = useState<number | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
   const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false);
+  const [isSOPViewerOpen, setIsSOPViewerOpen] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(50); // percentage
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [sopRefreshTrigger, setSOPRefreshTrigger] = useState(0);
+  const [sopDraftRefreshTrigger, setSOPDraftRefreshTrigger] = useState(0);
 
   // Load chats and SOPs on mount
   useEffect(() => {
@@ -189,12 +192,12 @@ export default function Home() {
             />
           )}
           
-          {/* Chat and Document Viewer Container */}
+          {/* Chat and Side Panel Container */}
           <div className="flex-1 flex overflow-hidden">
             {/* Chat Interface */}
             <div
               className="flex flex-col"
-              style={{ width: `${isDocumentViewerOpen ? leftPanelWidth : 100}%` }}
+              style={{ width: `${(isDocumentViewerOpen || isSOPViewerOpen) ? leftPanelWidth : 100}%` }}
             >
               <ChatInterface
                 chatId={currentChatId}
@@ -202,13 +205,19 @@ export default function Home() {
                 onOpenDocument={(docId) => {
                   setSelectedDocumentId(docId);
                   setIsDocumentViewerOpen(true);
+                  setIsSOPViewerOpen(false);
                 }}
+                onOpenSOP={() => {
+                  setIsSOPViewerOpen(true);
+                  setIsDocumentViewerOpen(false);
+                }}
+                onRefreshSOPDrafts={() => setSOPDraftRefreshTrigger(prev => prev + 1)}
                 onSOPRefresh={() => setSOPRefreshTrigger(prev => prev + 1)}
               />
             </div>
 
             {/* Resizable Divider */}
-            {isDocumentViewerOpen && (
+            {(isDocumentViewerOpen || isSOPViewerOpen) && (
               <div
                 onMouseDown={handleMouseDown}
                 className={`w-1 bg-border hover:bg-primary cursor-col-resize transition-colors user-select-none ${
@@ -217,18 +226,27 @@ export default function Home() {
               />
             )}
 
-            {/* Document Viewer */}
-            {isDocumentViewerOpen && (
+            {/* Side Panel - Document Viewer or SOP Viewer */}
+            {(isDocumentViewerOpen || isSOPViewerOpen) && (
               <div
                 className="flex flex-col overflow-hidden"
                 style={{ width: `${100 - leftPanelWidth}%` }}
               >
-                <DocumentViewer
-                  chatId={currentChatId}
-                  selectedDocumentId={selectedDocumentId}
-                  onDocumentSelect={(docId) => setSelectedDocumentId(docId)}
-                  onClose={() => setIsDocumentViewerOpen(false)}
-                />
+                {isDocumentViewerOpen && (
+                  <DocumentViewer
+                    chatId={currentChatId}
+                    selectedDocumentId={selectedDocumentId}
+                    onDocumentSelect={(docId) => setSelectedDocumentId(docId)}
+                    onClose={() => setIsDocumentViewerOpen(false)}
+                  />
+                )}
+                {isSOPViewerOpen && currentChatId && (
+                  <SOPViewer
+                    chatId={currentChatId}
+                    refreshTrigger={sopDraftRefreshTrigger}
+                    onClose={() => setIsSOPViewerOpen(false)}
+                  />
+                )}
               </div>
             )}
           </div>

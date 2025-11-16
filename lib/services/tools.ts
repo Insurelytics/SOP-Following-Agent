@@ -68,9 +68,9 @@ function findStepById(sop: SOP, stepId: string): SOPStep | undefined {
  * Executes the display_sop_to_user tool
  * Retrieves and returns a SOP for display
  */
-function executeDisplaySOPTool(sopId: string): { result: any; metadata: Record<string, any> } {
+function executeDisplaySOPTool(sopId: string, context?: ToolExecutionContext): { result: any; metadata: Record<string, any> } {
   try {
-    const { getSOP } = require('@/lib/db');
+    const { getSOP, saveSOPDraft } = require('@/lib/db');
     const sop = getSOP(sopId);
     
     if (!sop) {
@@ -80,11 +80,23 @@ function executeDisplaySOPTool(sopId: string): { result: any; metadata: Record<s
       };
     }
 
+    // Save as draft for display
+    let draftId: number | undefined;
+    if (context?.chatId) {
+      try {
+        const draft = saveSOPDraft(context.chatId, sop, 'display_sop_to_user');
+        draftId = draft.id;
+      } catch (e) {
+        console.error('Error saving SOP draft:', e);
+      }
+    }
+
     return {
       result: sop,
       metadata: {
         sopId: sop.id,
         displayName: sop.displayName,
+        draftId: draftId,
       },
     };
   } catch (error) {
@@ -145,7 +157,7 @@ function validateSOPStructure(sop: any): string[] {
  * Executes the propose_sop_edits tool
  * Validates and returns proposed edits without saving
  */
-function executeProposeSOPEditsTool(modifiedSOPString: string): { result: any; metadata: Record<string, any> } {
+function executeProposeSOPEditsTool(modifiedSOPString: string, context?: ToolExecutionContext): { result: any; metadata: Record<string, any> } {
   try {
     if (!modifiedSOPString) {
       console.log('modifiedSOP is missing');
@@ -180,12 +192,26 @@ function executeProposeSOPEditsTool(modifiedSOPString: string): { result: any; m
     // Update the timestamp
     modifiedSOP.updatedAt = new Date().toISOString();
     console.log('modifiedSOP:', modifiedSOP);
+
+    // Save as draft for display
+    let draftId: number | undefined;
+    if (context?.chatId) {
+      try {
+        const { saveSOPDraft } = require('@/lib/db');
+        const draft = saveSOPDraft(context.chatId, modifiedSOP, 'propose_sop_edits');
+        draftId = draft.id;
+      } catch (e) {
+        console.error('Error saving SOP draft:', e);
+      }
+    }
+
     return {
       result: modifiedSOP,
       metadata: {
         valid: true,
         sopId: modifiedSOP.id,
         displayName: modifiedSOP.displayName,
+        draftId: draftId,
       },
     };
   } catch (error) {
@@ -201,7 +227,7 @@ function executeProposeSOPEditsTool(modifiedSOPString: string): { result: any; m
  * Executes the overwrite_sop tool
  * Applies approved edits and saves to database
  */
-function executeOverwriteSOPTool(modifiedSOPString: string): { result: string; metadata: Record<string, any> } {
+function executeOverwriteSOPTool(modifiedSOPString: string, context?: ToolExecutionContext): { result: string; metadata: Record<string, any> } {
   try {
     if (!modifiedSOPString) {
       return {
@@ -232,7 +258,7 @@ function executeOverwriteSOPTool(modifiedSOPString: string): { result: string; m
       };
     }
 
-    const { saveSOP } = require('@/lib/db');
+    const { saveSOP, saveSOPDraft } = require('@/lib/db');
     
     // Ensure timestamps are set
     modifiedSOP.updatedAt = new Date().toISOString();
@@ -242,12 +268,24 @@ function executeOverwriteSOPTool(modifiedSOPString: string): { result: string; m
 
     saveSOP(modifiedSOP);
 
+    // Save as draft for display
+    let draftId: number | undefined;
+    if (context?.chatId) {
+      try {
+        const draft = saveSOPDraft(context.chatId, modifiedSOP, 'overwrite_sop');
+        draftId = draft.id;
+      } catch (e) {
+        console.error('Error saving SOP draft:', e);
+      }
+    }
+
     return {
       result: `Successfully updated SOP "${modifiedSOP.displayName}" (ID: ${modifiedSOP.id}). The changes have been saved to the database.`,
       metadata: {
         sopId: modifiedSOP.id,
         displayName: modifiedSOP.displayName,
         updatedAt: modifiedSOP.updatedAt,
+        draftId: draftId,
       },
     };
   } catch (error) {
@@ -262,7 +300,7 @@ function executeOverwriteSOPTool(modifiedSOPString: string): { result: string; m
  * Executes the create_sop tool
  * Creates a new SOP and saves to database
  */
-function executeCreateSOPTool(newSOPString: string): { result: string; metadata: Record<string, any> } {
+function executeCreateSOPTool(newSOPString: string, context?: ToolExecutionContext): { result: string; metadata: Record<string, any> } {
   try {
     if (!newSOPString) {
       return {
@@ -293,7 +331,7 @@ function executeCreateSOPTool(newSOPString: string): { result: string; metadata:
       };
     }
 
-    const { getSOP, saveSOP } = require('@/lib/db');
+    const { getSOP, saveSOP, saveSOPDraft } = require('@/lib/db');
 
     // Check if SOP with this ID already exists
     const existing = getSOP(newSOP.id);
@@ -311,12 +349,24 @@ function executeCreateSOPTool(newSOPString: string): { result: string; metadata:
 
     saveSOP(newSOP);
 
+    // Save as draft for display
+    let draftId: number | undefined;
+    if (context?.chatId) {
+      try {
+        const draft = saveSOPDraft(context.chatId, newSOP, 'create_sop');
+        draftId = draft.id;
+      } catch (e) {
+        console.error('Error saving SOP draft:', e);
+      }
+    }
+
     return {
       result: `Successfully created new SOP "${newSOP.displayName}" (ID: ${newSOP.id}). The new SOP has been saved to the database and is now available for use.`,
       metadata: {
         sopId: newSOP.id,
         displayName: newSOP.displayName,
         createdAt: newSOP.createdAt,
+        draftId: draftId,
       },
     };
   } catch (error) {
@@ -444,19 +494,19 @@ export function executeSingleTool(toolCall: ToolCall, context?: ToolExecutionCon
       result = toolResult.result;
       metadata = toolResult.metadata;
     } else if (toolCall.function.name === 'display_sop_to_user') {
-      const toolResult = executeDisplaySOPTool(args.sopId);
+      const toolResult = executeDisplaySOPTool(args.sopId, context);
       result = toolResult.result;
       metadata = toolResult.metadata;
     } else if (toolCall.function.name === 'propose_sop_edits') {
-      const toolResult = executeProposeSOPEditsTool(args.modifiedSOP);  // args.modifiedSOP is a JSON string
+      const toolResult = executeProposeSOPEditsTool(args.modifiedSOP, context);  // args.modifiedSOP is a JSON string
       result = toolResult.result;
       metadata = toolResult.metadata;
     } else if (toolCall.function.name === 'overwrite_sop') {
-      const toolResult = executeOverwriteSOPTool(args.modifiedSOP);  // args.modifiedSOP is a JSON string
+      const toolResult = executeOverwriteSOPTool(args.modifiedSOP, context);  // args.modifiedSOP is a JSON string
       result = toolResult.result;
       metadata = toolResult.metadata;
     } else if (toolCall.function.name === 'create_sop') {
-      const toolResult = executeCreateSOPTool(args.newSOP);  // args.newSOP is a JSON string
+      const toolResult = executeCreateSOPTool(args.newSOP, context);  // args.newSOP is a JSON string
       result = toolResult.result;
       metadata = toolResult.metadata;
     } else if (toolCall.function.name === 'delete_sop') {
