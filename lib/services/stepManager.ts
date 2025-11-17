@@ -31,7 +31,7 @@ function getValidNextSteps(step: SOPStep): string[] {
  * Uses Instructor to get a structured decision from the model
  */
 export async function determineNextStep(
-  userMessage: string,
+  history: any[],
   currentStep: SOPStep,
   sop: SOP
 ): Promise<{ stepId: string }> {
@@ -50,11 +50,14 @@ export async function determineNextStep(
       }),
       mode: 'TOOLS',
     });
+    // get the last 3 messages from the history
+    const last3Messages = history.slice(-3);
 
     // Build the prompt
-    const prompt = `You are a workflow manager. Based on the user's message and the complete SOP context, determine which step the workflow should transition to.
+    const prompt = `Based on the conversation history and the complete SOP context, determine which step the workflow should transition to.
 
-User Message: "${userMessage}"
+Conversation History:
+${last3Messages.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
 
 Complete SOP:
 ${JSON.stringify(sop, null, 2)}
@@ -66,9 +69,8 @@ Valid Next Steps: ${validNextSteps.join(', ')}
 Analyze the user's message and the current step requirements. Decide whether to:
 1. Stay on the current step (if more work is needed)
 2. Advance to one of the valid next steps (if the current step is complete)`;
-
     const decision = await client.chat.completions.create({
-      model: process.env.MODEL || 'gpt-4-turbo-preview',
+      model: process.env.CHEAP_MODEL || 'gpt-4.1-mini',
       messages: [
         {
           role: 'user',

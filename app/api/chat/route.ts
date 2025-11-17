@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
       const currentStep = sop.steps.find(s => s.id === currentStepId);
       if (currentStep) {
         try {
-          stepDecision = await determineNextStep(message, currentStep, sop);
+          stepDecision = await determineNextStep(history, currentStep, sop);
           
           // Update the step if it changed
           if (stepDecision.stepId !== currentStepId && sopRun) {
