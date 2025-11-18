@@ -35,6 +35,8 @@ export default function ChatInterface({
   const [currentToolCall, setCurrentToolCall] = useState<ToolCall | null>(null);
   const [hasContentStarted, setHasContentStarted] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [liveDocumentHtml, setLiveDocumentHtml] = useState<string | null>(null);
+  const [liveDocumentName, setLiveDocumentName] = useState<string | null>(null);
   const lastSOPChatIdRef = useRef<number | null>(null);
   const lastProcessedMessageIdRef = useRef<number | null>(null);
   const lastProcessedSOPDraftIdRef = useRef<number | null>(null);
@@ -218,6 +220,8 @@ export default function ChatInterface({
     setCurrentToolCall(null);
     setHasContentStarted(false);
     setIsThinking(true);
+    setLiveDocumentHtml(null);
+    setLiveDocumentName(null);
 
     try {
       const response = await fetch('/api/chat', {
@@ -253,20 +257,54 @@ export default function ChatInterface({
               const data = JSON.parse(line.slice(6));
               
               if (data.type === 'content') {
-                // When content starts streaming, clear any tool call placeholder and thinking state
+                // When content starts streaming, clear thinking state
+                // but keep any active tool call placeholder until the tool
+                // has fully completed and its messages are in history.
                 if (!hasContentStarted) {
                   setHasContentStarted(true);
-                  setCurrentToolCall(null);
                   setIsThinking(false);
                 }
                 setStreamingMessage((prev) => prev + data.content);
               } else if (data.type === 'tool') {
-                // Show tool execution as a placeholder, hide thinking
-                setIsThinking(false);
-                setCurrentToolCall({
-                  name: data.name,
-                  id: data.name,
-                });
+                // Distinguish between tool selection/start (no result/messagesToSave)
+                // and tool completion (includes result/messagesToSave which have
+                // already been persisted by the server).
+                const isToolCompletion = !!data.result || !!data.messagesToSave;
+
+                if (!isToolCompletion) {
+                  // Tool has been selected but not yet finished executing.
+                  // Show tool execution as a placeholder, hide thinking.
+                  setIsThinking(false);
+                  setCurrentToolCall({
+                    name: data.name,
+                    id: data.name,
+                  });
+                } else {
+                  // Tool has finished executing. Transition from the placeholder
+                  // to the permanent tool messages by refreshing the message list.
+                  setIsThinking(false);
+                  setCurrentToolCall(null);
+
+                  // Reload messages so the newly-saved tool messages appear
+                  // immediately in the history while the assistant response
+                  // continues streaming.
+                  fetch(`/api/messages?chatId=${chatId}`)
+                    .then((res) => res.json())
+                    .then((updatedMessages) => {
+                      setMessages(updatedMessages);
+                    })
+                    .catch((err) => {
+                      console.error('Error reloading messages after tool completion:', err);
+                    });
+                }
+              } else if (data.type === 'document_stream') {
+                // Live document HTML preview while write_document tool is being constructed
+                if (typeof data.html === 'string' && data.html.length > 0) {
+                  setLiveDocumentHtml(data.html);
+                }
+                if (typeof data.documentName === 'string' && data.documentName.length > 0) {
+                  setLiveDocumentName(data.documentName);
+                }
               } else if (data.type === 'done') {
                 // Stream complete - trigger SOP header refresh to show step updates
                 onSOPRefresh?.();
@@ -290,6 +328,8 @@ export default function ChatInterface({
       setCurrentToolCall(null);
       setHasContentStarted(false);
       setIsThinking(false);
+      setLiveDocumentHtml(null);
+      setLiveDocumentName(null);
     } catch (error) {
       console.error('Error sending message:', error);
       setStreamingMessage('Error: Failed to send message');
@@ -327,6 +367,8 @@ export default function ChatInterface({
             chatId={chatId}
             onOpenDocument={onOpenDocument}
             onOpenSOP={onOpenSOP}
+            liveDocumentHtml={liveDocumentHtml}
+            liveDocumentName={liveDocumentName}
           />
           <ChatInput onSendMessage={handleSendMessage} disabled={isStreaming} />
         </>

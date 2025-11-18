@@ -19,6 +19,8 @@ interface MessageListProps {
   chatId: number;
   onOpenDocument?: (documentId: number) => void;
   onOpenSOP?: () => void;
+  liveDocumentHtml?: string | null;
+  liveDocumentName?: string | null;
 }
 
 export default function MessageList({
@@ -30,13 +32,23 @@ export default function MessageList({
   chatId,
   onOpenDocument,
   onOpenSOP,
+  liveDocumentHtml,
+  liveDocumentName,
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const liveDocumentRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom when first entering a chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatId]);
+
+  // Auto-scroll live document preview as new content streams in
+  useEffect(() => {
+    if (liveDocumentRef.current) {
+      liveDocumentRef.current.scrollTop = liveDocumentRef.current.scrollHeight;
+    }
+  }, [liveDocumentHtml]);
 
   // Determine if the last message is from the assistant
   const isLastMessageAI = 
@@ -201,6 +213,26 @@ export default function MessageList({
                 <span className="text-sm inline-block bg-gradient-to-r from-gray-500 via-blue-200 to-gray-500 bg-[length:200%_auto] animate-shimmer-text bg-clip-text text-transparent font-semibold">
                   Calling {currentToolCall.name} tool
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* Live document HTML preview while write_document is streaming */}
+          {currentToolCall?.name === 'write_document' && liveDocumentHtml && (
+            <div className="flex justify-center mt-2">
+              <div className="w-[60%] text-left">
+                <div className="text-xs mb-1 text-foreground-muted">
+                  Live document preview{liveDocumentName ? `: ${liveDocumentName}` : ''}
+                </div>
+                <div
+                  ref={liveDocumentRef}
+                  className="max-h-96 overflow-auto text-xs text-foreground opacity-80"
+                >
+                  <div
+                    className="max-w-none break-words prose prose-xs sm:prose-sm prose-headings:my-2 prose-p:my-2 prose-li:my-0 prose-pre:p-3 prose-pre:rounded dark:prose-invert shimmer-document-text"
+                    dangerouslySetInnerHTML={{ __html: liveDocumentHtml }}
+                  />
+                </div>
               </div>
             </div>
           )}
