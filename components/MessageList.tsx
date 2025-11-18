@@ -2,6 +2,7 @@
 
 import { Message } from '@/lib/db';
 import { useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Image as ImageIcon, FileText } from 'lucide-react';
 
 interface ToolCall {
@@ -172,8 +173,8 @@ export default function MessageList({
                       )}
                     </div>
                   ) : (
-                    <div className="max-w-none break-words text-foreground leading-relaxed">
-                      {message.content}
+                    <div className="max-w-none break-words prose prose-sm sm:prose-base lg:prose-lg prose-headings:my-2 prose-p:my-2 prose-li:my-0 prose-code:bg-background-tertiary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background-tertiary prose-pre:p-3 prose-pre:rounded dark:prose-invert">
+                      <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
                   )}
                 </div>
@@ -208,8 +209,8 @@ export default function MessageList({
           {streamingMessage && (
             <div className="flex justify-center mt-4">
               <div className="w-[60%] text-foreground text-left">
-                <div className="max-w-none break-words text-foreground leading-relaxed">
-                  {streamingMessage}
+                <div className="max-w-none break-words prose prose-sm sm:prose-base lg:prose-lg prose-headings:my-2 prose-p:my-2 prose-li:my-0 prose-code:bg-background-tertiary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background-tertiary prose-pre:p-3 prose-pre:rounded dark:prose-invert">
+                  <ReactMarkdown>{streamingMessage}</ReactMarkdown>
                   {isStreaming && (
                     <span className="inline-block w-1 h-4 ml-1 bg-foreground-muted animate-pulse" />
                   )}

@@ -306,10 +306,8 @@ export default function SOPViewer({ chatId, refreshTrigger = 0, onClose }: SOPVi
                                     </div>
                                   )}
                                   <div className="text-xs">
-                                    <p className="text-foreground-muted font-medium mb-1">Template</p>
-                                    <div className="bg-background-secondary text-foreground p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap break-words">
-                                      {format.template}
-                                    </div>
+                                    <p className="text-foreground-muted font-medium mb-1">Template Preview</p>
+                                    <div className="bg-white p-2 rounded overflow-x-auto border border-border" dangerouslySetInnerHTML={{ __html: format.template }} />
                                   </div>
                                 </div>
                               );
