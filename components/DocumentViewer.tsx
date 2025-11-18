@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { exportMarkdownAsDocx, exportMarkdownAsPDF } from '@/lib/document-export';
+import { exportHtmlAsDocx } from '@/lib/document-export';
+import { renderAsync } from 'docx-preview';
 
 interface Document {
   id: number;
@@ -26,12 +26,15 @@ export default function DocumentViewer({
 }: DocumentViewerProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [docxContent, setDocxContent] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingDocx, setIsLoadingDocx] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const downloadRef = useRef<HTMLDivElement>(null);
+  const docxContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch documents for the chat
   useEffect(() => {
@@ -78,6 +81,53 @@ export default function DocumentViewer({
     setIsDropdownOpen(false);
   };
 
+  // Fetch and render DOCX when document is selected
+  useEffect(() => {
+    if (!selectedDocument) return;
+
+    const renderDocx = async () => {
+      try {
+        setIsLoadingDocx(true);
+        
+        // Generate DOCX from HTML content
+        const docxResponse = await fetch('/api/export/docx', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            html: selectedDocument.content,
+            filename: selectedDocument.document_name,
+          }),
+        });
+
+        if (!docxResponse.ok) {
+          throw new Error('Failed to generate DOCX');
+        }
+
+        const docxBlob = await docxResponse.blob();
+        
+        // Ensure the container ref is available
+        if (!docxContainerRef.current) {
+          throw new Error('Document container not available');
+        }
+
+        // Clear previous content
+        docxContainerRef.current.innerHTML = '';
+
+        // Render DOCX using docx-preview
+        await renderAsync(docxBlob, docxContainerRef.current);
+      } catch (err) {
+        console.error('Error rendering DOCX:', err);
+        if (docxContainerRef.current) {
+          docxContainerRef.current.innerHTML = `<div style="padding: 20px; color: red;">Error loading document: ${err instanceof Error ? err.message : 'Unknown error'}</div>`;
+        }
+      } finally {
+        setIsLoadingDocx(false);
+      }
+    };
+
+    renderDocx();
+  }, [selectedDocument]);
+
   // Handle clicking outside dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -99,29 +149,39 @@ export default function DocumentViewer({
   }, [isDropdownOpen, isDownloadOpen]);
 
   // Handle document download
-  const handleDownload = async (format: 'pdf' | 'docx' | 'md') => {
+  const handleDownload = async (format: 'pdf' | 'docx') => {
     if (!selectedDocument) return;
 
     const filename = selectedDocument.document_name;
 
     try {
-      if (format === 'md') {
-        // For markdown, download as plain text
-        const blob = new Blob([selectedDocument.content], { type: 'text/markdown' });
-        const url = window.URL.createObjectURL(blob);
+      if (format === 'docx') {
+        // Convert HTML to DOCX on server
+        await exportHtmlAsDocx(selectedDocument.content, `${filename}.docx`);
+      } else if (format === 'pdf') {
+        // Convert HTML → DOCX → PDF for consistent styling
+        const response = await fetch('/api/export/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            html: selectedDocument.content,
+            filename: filename,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to generate PDF');
+        }
+
+        const pdfBlob = await response.blob();
+        const url = window.URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${filename}.md`;
+        a.download = `${filename}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-      } else if (format === 'docx') {
-        // Use docx library for proper Word export
-        await exportMarkdownAsDocx(selectedDocument.content, `${filename}.docx`);
-      } else if (format === 'pdf') {
-        // Use html2pdf for proper PDF export
-        await exportMarkdownAsPDF(selectedDocument.content, `${filename}.pdf`);
       }
       setIsDownloadOpen(false);
     } catch (error) {
@@ -248,18 +308,9 @@ export default function DocumentViewer({
                 <button
                   onClick={(e) => {
                     e.preventDefault();
-                    handleDownload('md');
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-background-secondary transition-colors"
-                >
-                  Markdown (.md)
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
                     handleDownload('docx');
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-background-secondary transition-colors border-t border-border"
+                  className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-background-secondary transition-colors"
                 >
                   Word (.docx)
                 </button>
@@ -278,16 +329,28 @@ export default function DocumentViewer({
         </div>
       )}
 
-      {/* Document Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {selectedDocument ? (
-          <div className="prose prose-sm sm:prose-base dark:prose-invert prose-headings:my-2 prose-p:my-2 prose-li:my-0 prose-code:bg-background prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background prose-pre:p-3 prose-pre:rounded max-w-none">
-            <ReactMarkdown>{selectedDocument.content}</ReactMarkdown>
-          </div>
-        ) : (
+      {/* Document Content - DOCX Preview */}
+      <div className="flex-1 overflow-auto bg-background-secondary p-8">
+        {!selectedDocument ? (
           <div className="flex items-center justify-center h-full text-foreground-muted">
             <p className="text-sm">Select a document to view</p>
           </div>
+        ) : (
+          <>
+            {isLoadingDocx && (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-foreground-muted text-sm">Loading document...</div>
+              </div>
+            )}
+            <div 
+              ref={docxContainerRef}
+              className="w-full"
+              style={{
+                display: isLoadingDocx ? 'none' : 'flex',
+                justifyContent: 'center',
+              }}
+            />
+          </>
         )}
       </div>
     </div>

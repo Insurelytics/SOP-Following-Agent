@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { SOP, SOPStep, ExpectedOutput } from '@/lib/types/sop';
-import ReactMarkdown from 'react-markdown';
 
 export interface SOPDraft {
   id: number;
@@ -308,8 +307,8 @@ export default function SOPViewer({ chatId, refreshTrigger = 0, onClose }: SOPVi
                                   )}
                                   <div className="text-xs">
                                     <p className="text-foreground-muted font-medium mb-1">Template</p>
-                                    <div className="bg-background-secondary text-foreground p-2 rounded text-xs overflow-x-auto prose prose-sm dark:prose-invert max-w-none [&>*]:my-0 [&>p]:text-xs [&>pre]:bg-background [&>pre>code]:text-xs [&>code]:text-action/70">
-                                      <ReactMarkdown>{format.template}</ReactMarkdown>
+                                    <div className="bg-background-secondary text-foreground p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap break-words">
+                                      {format.template}
                                     </div>
                                   </div>
                                 </div>

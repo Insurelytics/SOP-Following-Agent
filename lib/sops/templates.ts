@@ -56,7 +56,7 @@ export const SOPManagementSOP: SOP = {
       "description": "What the AI should do at this step",
       "referencedDocuments": ["document_id"],
       "expectedOutput": {
-        "type": "text" | "markdown-document" | "structured" | "conversation",
+        "type": "text" | "html-document" | "structured" | "conversation",
         "format": "format_id",
         "description": "What output is expected"
       },
@@ -206,14 +206,26 @@ export const PDFSummarySOP: SOP = {
     {
       id: 'pdf-summary',
       name: 'PDF Summary',
-      template: `**Summary**
-- [2-3 sentences]
+      template: `<div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px;">
+  <h2 style="color: #333; margin-top: 24px; margin-bottom: 12px;">Summary</h2>
+  <p style="color: #666;">[2-3 sentences]</p>
 
-**Main Topics**
-- [bullet points list of 5-7 key topics]
+  <h2 style="color: #333; margin-top: 24px; margin-bottom: 12px;">Main Topics</h2>
+  <ul style="color: #666; margin: 12px 0;">
+    <li>[key topic 1]</li>
+    <li>[key topic 2]</li>
+    <li>[key topic 3]</li>
+    <li>[key topic 4]</li>
+    <li>[key topic 5-7]</li>
+  </ul>
 
-**Key Takeaways**
-- [3-5 bullet points]`,
+  <h2 style="color: #333; margin-top: 24px; margin-bottom: 12px;">Key Takeaways</h2>
+  <ul style="color: #666; margin: 12px 0;">
+    <li>[takeaway 1]</li>
+    <li>[takeaway 2]</li>
+    <li>[takeaway 3-5]</li>
+  </ul>
+</div>`,
     requirements: [],
     },
   ],
@@ -247,7 +259,7 @@ export const PDFSummarySOP: SOP = {
       referencedDocuments: ['source_document'],
 
       expectedOutput: {
-        type: 'markdown-document',
+        type: 'html-document',
         format: 'pdf-summary',
         description: 'A document and a brief message to the user about said document.',
       },
@@ -294,11 +306,40 @@ export const ContentPlanSOP: SOP = {
     {
       id: 'style-guide-ratio',
       name: 'Style Guide Ratio Doc',
-      template: `Key Takeaways
- [summary]
-[CLIENT NAME] - [Package Size]-Video Monthly Content Ratio
- Content Style | % of Monthly Output | # of Videos ([Package Size] total) | Primary Purpose | Example Topics / Angles
-`,
+      template: `<div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 1000px;">
+  <h2 style="color: #333; margin-bottom: 12px;">Key Takeaways</h2>
+  <p style="color: #666; margin-bottom: 24px;">[summary]</p>
+
+  <h3 style="color: #333; margin-top: 24px; margin-bottom: 16px;">[CLIENT NAME] - [Package Size]-Video Monthly Content Ratio</h3>
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+    <thead>
+      <tr style="background-color: #f0f0f0;">
+        <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">Content Style</th>
+        <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">% of Monthly Output</th>
+        <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;"># of Videos</th>
+        <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">Primary Purpose</th>
+        <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">Example Topics / Angles</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="border: 1px solid #ddd; padding: 12px;">[style 1]</td>
+        <td style="border: 1px solid #ddd; padding: 12px;">[%]</td>
+        <td style="border: 1px solid #ddd; padding: 12px;">[count]</td>
+        <td style="border: 1px solid #ddd; padding: 12px;">[purpose]</td>
+        <td style="border: 1px solid #ddd; padding: 12px;">[topics]</td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #ddd; padding: 12px;">[style 2]</td>
+        <td style="border: 1px solid #ddd; padding: 12px;">[%]</td>
+        <td style="border: 1px solid #ddd; padding: 12px;">[count]</td>
+        <td style="border: 1px solid #ddd; padding: 12px;">[purpose]</td>
+        <td style="border: 1px solid #ddd; padding: 12px;">[topics]</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="color: #999; font-size: 12px; margin-top: 12px;">Styles include: Talking Head (authority), VO Storytelling, Tutorial/Framework, Vlog/Doc moments, Lists/Hacks, Text-on-Screen/Visual.</p>
+</div>`,
       requirements: [
         'Styles include: Talking Head (authority), VO Storytelling, Tutorial/Framework, Vlog/Doc moments, Lists/Hacks, Text-on-Screen/Visual.',
       ],
@@ -306,10 +347,22 @@ export const ContentPlanSOP: SOP = {
     {
       id: 'video-ideas-list',
       name: 'Video Ideas List',
-      template: `A numbered list of 10 talking head video ideas:
-1. [Video Title] - [One-line angle/hook]
-2. [Video Title] - [One-line angle/hook]
-(etc.)`,
+      template: `<div style="font-family: Arial, sans-serif; line-height: 1.8; max-width: 800px;">
+  <h2 style="color: #333; margin-bottom: 20px;">Video Concepts - Talking Head Ideas</h2>
+  <ol style="color: #666; margin: 12px 0; padding-left: 24px;">
+    <li style="margin-bottom: 12px;"><strong>[Video Title 1]</strong> - [One-line angle/hook]</li>
+    <li style="margin-bottom: 12px;"><strong>[Video Title 2]</strong> - [One-line angle/hook]</li>
+    <li style="margin-bottom: 12px;"><strong>[Video Title 3]</strong> - [One-line angle/hook]</li>
+    <li style="margin-bottom: 12px;"><strong>[Video Title 4]</strong> - [One-line angle/hook]</li>
+    <li style="margin-bottom: 12px;"><strong>[Video Title 5]</strong> - [One-line angle/hook]</li>
+    <li style="margin-bottom: 12px;"><strong>[Video Title 6]</strong> - [One-line angle/hook]</li>
+    <li style="margin-bottom: 12px;"><strong>[Video Title 7]</strong> - [One-line angle/hook]</li>
+    <li style="margin-bottom: 12px;"><strong>[Video Title 8]</strong> - [One-line angle/hook]</li>
+    <li style="margin-bottom: 12px;"><strong>[Video Title 9]</strong> - [One-line angle/hook]</li>
+    <li style="margin-bottom: 12px;"><strong>[Video Title 10]</strong> - [One-line angle/hook]</li>
+  </ol>
+  <p style="color: #999; font-size: 12px; margin-top: 20px;"><em>Each idea reflects client brand, comp style, and target audience.</em></p>
+</div>`,
 
       requirements: [
         'Each idea reflects client brand, comp style, and target audience.',
@@ -318,15 +371,37 @@ export const ContentPlanSOP: SOP = {
     {
       id: 'script-format',
       name: 'Script Format',
-      template: `**Key Information:**
-- Video Format: [type]
-- Inspiration Video: [real Instagram link]
-- Subtopic: [topic name]
-- Instructions: [filming guidance]
+      template: `<div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 1000px;">
+  <div style="background-color: #f9f9f9; border-left: 4px solid #4CAF50; padding: 16px; margin-bottom: 24px;">
+    <h3 style="margin-top: 0; color: #333;">Key Information</h3>
+    <ul style="list-style: none; padding: 0; color: #666;">
+      <li style="margin-bottom: 8px;"><strong>Video Format:</strong> [type]</li>
+      <li style="margin-bottom: 8px;"><strong>Inspiration Video:</strong> [real Instagram link]</li>
+      <li style="margin-bottom: 8px;"><strong>Subtopic:</strong> [topic name]</li>
+      <li style="margin-bottom: 8px;"><strong>Instructions:</strong> [filming guidance]</li>
+    </ul>
+  </div>
 
-**NOTES AND B-ROLL (LEFT) | SCRIPT (RIGHT)**
-[Left column: filming notes and actions | Right column: dialogue]
-`,
+  <h3 style="color: #333; margin-top: 24px; margin-bottom: 12px;">Script</h3>
+  <table style="width: 100%; border-collapse: collapse;">
+    <thead>
+      <tr style="background-color: #f0f0f0;">
+        <th style="border: 1px solid #ddd; padding: 12px; text-align: left; width: 40%; font-weight: bold;">Notes and B-Roll</th>
+        <th style="border: 1px solid #ddd; padding: 12px; text-align: left; width: 60%; font-weight: bold;">Script / Dialogue</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="border: 1px solid #ddd; padding: 12px; vertical-align: top; color: #666;">[filming notes and actions]</td>
+        <td style="border: 1px solid #ddd; padding: 12px; vertical-align: top; color: #666;">[dialogue]</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top: 20px; padding: 12px; background-color: #fff3cd; border-radius: 4px; font-size: 12px; color: #666;">
+    <p style="margin: 0;"><strong>Requirements:</strong> Script length ~1:15-1:30 | Conversational tone | No emojis | No dashes in dialogue</p>
+  </div>
+</div>`,
       requirements: [
         'Script length ~1:15-1:30 (judged assuming the speaker talks at a moderate pace)',
         'conversational tone',
@@ -367,7 +442,7 @@ export const ContentPlanSOP: SOP = {
       referencedDocuments: ['client_onboarding', 'comps_list'],
 
       expectedOutput: {
-        type: 'markdown-document',
+        type: 'html-document',
         format: 'style-guide-ratio',
         description: 'A document and a brief message to the user about said document.',
       },
@@ -401,7 +476,7 @@ export const ContentPlanSOP: SOP = {
       referencedDocuments: ['client_onboarding', 'comps_list'],
 
       expectedOutput: {
-        type: 'markdown-document',
+        type: 'html-document',
         format: 'script-format',
         description: 'A document and a brief message to the user about the document.',
       },

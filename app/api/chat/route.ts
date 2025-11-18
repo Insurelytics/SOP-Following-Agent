@@ -125,7 +125,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { chatId, message, files } = body;
     const model = DEFAULT_MODEL;
-    console.log('model', model);
 
     // Validate request
     const validation = validateRequest(chatId, message);
@@ -190,7 +189,10 @@ export async function POST(request: NextRequest) {
             updateSOPRunStep(sopRun.id, stepDecision.stepId);
             currentStepId = stepDecision.stepId;
             toolContext.currentStepId = currentStepId;
-            console.log(`Step transition: ${sopRun.currentStepId} → ${stepDecision.stepId}`);
+            // Log step transitions only in development
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`Step transition: ${sopRun.currentStepId} → ${stepDecision.stepId}`);
+            }
           }
         } catch (error) {
           console.error('Error determining next step:', error);

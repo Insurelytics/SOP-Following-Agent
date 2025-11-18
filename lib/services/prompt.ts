@@ -16,7 +16,7 @@ function findStepById(sop: SOP, stepId: string): SOPStep | undefined {
  */
 function generateToolInstructions(tools: string[]): string {
   const toolInstructions: { [key: string]: string } = {
-    write_document: `**write_document**: Use this tool when the current step requires a specific output format (markdown-document, structured, etc.). Call with the current step ID and complete proposed output. After calling this tool:
+    write_document: `**write_document**: Use this tool when the current step requires a specific output format. Generate the document content as valid HTML. Call with the current step ID and complete proposed HTML output. After calling this tool:
 - NEVER paste, repeat, or include the document content in your response
 - NEVER summarize or quote the document text
 - DO briefly confirm that you created a document ("I've created a document...")

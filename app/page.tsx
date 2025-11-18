@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import Sidebar from '@/components/Sidebar';
 import ChatInterface from '@/components/ChatInterface';
-import DocumentViewer from '@/components/DocumentViewer';
-import SOPViewer from '@/components/SOPViewer';
 import SOPHeader from '@/components/SOPHeader';
 import { Chat } from '@/lib/db';
 import type { SOP } from '@/lib/types/sop';
+
+// Dynamically import components that depend on browser APIs
+const DocumentViewer = dynamic(() => import('@/components/DocumentViewer'), { ssr: false });
+const SOPViewer = dynamic(() => import('@/components/SOPViewer'), { ssr: false });
 
 export default function Home() {
   const [chats, setChats] = useState<Chat[]>([]);

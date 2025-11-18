@@ -26,7 +26,6 @@ export const openai = new OpenAI({
  * Get model from environment variable, default to gpt-5-nano
  */
 export const DEFAULT_MODEL = process.env.MODEL || 'gpt-5-nano';
-console.log('DEFAULT_MODEL', DEFAULT_MODEL);
 
 // ============================================================================
 // Tool Definitions

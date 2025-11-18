@@ -169,8 +169,6 @@ export function initializeDatabase() {
     )
   `);
 
-  console.log('Database initialized successfully');
-  
   // Run migrations
   migrateDatabase();
 }
@@ -759,14 +757,25 @@ export function getSOPDraft(draftId: number): SOPDraft | undefined {
   return undefined;
 }
 
-// Auto-initialize database on module import
-try {
-  initializeDatabase();
-  seedDefaultSOPs();
-} catch (error) {
-  console.error('Error initializing database:', error);
+// Singleton pattern to ensure database is only initialized once per server instance
+let isInitialized = false;
+
+function ensureDatabaseInitialized() {
+  if (isInitialized) return;
+  
+  try {
+    isInitialized = true;
+    initializeDatabase();
+    seedDefaultSOPs();
+  } catch (error) {
+    console.error('Error initializing database:', error);
+    isInitialized = false; // Reset on error so it can be retried
+  }
 }
 
+// Initialize on module import
+ensureDatabaseInitialized();
+
 // Export the database instance for direct access if needed
-export { db };
+export { db, ensureDatabaseInitialized };
 
