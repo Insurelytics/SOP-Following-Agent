@@ -18,6 +18,108 @@ function validateRequest(chatId: unknown, message: unknown): { valid: boolean; e
 }
 
 /**
+ * Converts file attachments to OpenAI message content format
+ */
+function convertFileAttachments(fileAttachmentsJson: string): any[] {
+  const attachments: any[] = [];
+  try {
+    const parsed = JSON.parse(fileAttachmentsJson);
+    for (const attachment of parsed) {
+      if (attachment.is_image && attachment.base64) {
+        attachments.push({
+          type: 'image_url',
+          image_url: {
+            url: `data:${attachment.file_type};base64,${attachment.base64}`,
+          },
+        });
+      } else if (attachment.file_id && attachment.is_pdf) {
+        attachments.push({
+          type: 'file',
+          file: {
+            file_id: attachment.file_id,
+          },
+        });
+      } else if (attachment.extracted_text && attachment.requires_text_extraction) {
+        attachments.push({
+          type: 'text',
+          text: `**File: ${attachment.filename}**\n${attachment.extracted_text}`,
+        });
+      }
+    }
+  } catch (e) {
+    console.error('Error parsing file attachments:', e);
+  }
+  return attachments;
+}
+
+/**
+ * Converts a user message to OpenAI format with file attachment support
+ */
+function convertUserMessage(msg: any): ChatCompletionMessageParam {
+  const msgContent: any[] = [];
+  
+  if (msg.content) {
+    msgContent.push({
+      type: 'text',
+      text: msg.content,
+    });
+  }
+
+  if (msg.file_attachments) {
+    msgContent.push(...convertFileAttachments(msg.file_attachments));
+  }
+
+  return {
+    role: 'user',
+    content: msgContent.length > 0 ? msgContent : (msg.content || ''),
+  } as any;
+}
+
+/**
+ * Converts an assistant message with tool calls to OpenAI format
+ */
+function convertAssistantMessageWithTools(msg: any): ChatCompletionMessageParam {
+  return {
+    role: 'assistant',
+    content: null,
+    tool_calls: JSON.parse(msg.tool_calls),
+  } as any;
+}
+
+/**
+ * Converts a tool result message to OpenAI format
+ */
+function convertToolResultMessage(msg: any): ChatCompletionMessageParam {
+  return {
+    role: 'tool',
+    content: msg.content,
+    tool_call_id: msg.tool_call_id,
+  } as any;
+}
+
+/**
+ * Converts a single message from storage format to OpenAI format
+ */
+function convertMessage(msg: any): ChatCompletionMessageParam {
+  if (msg.role === 'assistant' && msg.tool_calls) {
+    return convertAssistantMessageWithTools(msg);
+  }
+  
+  if (msg.role === 'tool' && msg.tool_call_id) {
+    return convertToolResultMessage(msg);
+  }
+
+  if (msg.role === 'user') {
+    return convertUserMessage(msg);
+  }
+
+  return {
+    role: msg.role as 'user' | 'assistant' | 'system',
+    content: msg.content || '',
+  } as ChatCompletionMessageParam;
+}
+
+/**
  * Prepares the conversation messages with system prompt
  * Properly reconstructs tool call and tool result messages from stored data
  * Includes file attachments in user messages
@@ -28,83 +130,7 @@ function prepareConversationMessages(
   sop?: any,
   currentStepId?: string
 ): ChatCompletionMessageParam[] {
-  const conversationMessages: ChatCompletionMessageParam[] = history.map((msg) => {
-    // Handle assistant messages with tool calls
-    if (msg.role === 'assistant' && msg.tool_calls) {
-      return {
-        role: 'assistant',
-        content: null,
-        tool_calls: JSON.parse(msg.tool_calls),
-      } as any;
-    }
-    
-    // Handle tool result messages
-    if (msg.role === 'tool' && msg.tool_call_id) {
-      return {
-        role: 'tool',
-        content: msg.content,
-        tool_call_id: msg.tool_call_id,
-      } as any;
-    }
-
-    // Handle user messages with file attachments
-    if (msg.role === 'user') {
-      const msgContent: any[] = [];
-      
-      // Add text content
-      if (msg.content) {
-        msgContent.push({
-          type: 'text',
-          text: msg.content,
-        });
-      }
-
-      // Add file attachments
-      if (msg.file_attachments) {
-        try {
-          const attachments = JSON.parse(msg.file_attachments);
-          for (const attachment of attachments) {
-            if (attachment.is_image && attachment.base64) {
-              // Add image as base64 using the correct OpenAI format
-              msgContent.push({
-                type: 'image_url',
-                image_url: {
-                  url: `data:${attachment.file_type};base64,${attachment.base64}`,
-                },
-              });
-            } else if (attachment.file_id && attachment.is_pdf) {
-              // Add PDF file using the correct OpenAI format
-              msgContent.push({
-                type: 'file',
-                file: {
-                  file_id: attachment.file_id,
-                },
-              });
-            } else if (attachment.extracted_text && attachment.requires_text_extraction) {
-              // Add extracted text from text-based documents
-              msgContent.push({
-                type: 'text',
-                text: `**File: ${attachment.filename}**\n${attachment.extracted_text}`,
-              });
-            }
-          }
-        } catch (e) {
-          console.error('Error parsing file attachments:', e);
-        }
-      }
-
-      return {
-        role: 'user',
-        content: msgContent.length > 0 ? msgContent : (msg.content || ''),
-      } as any;
-    }
-
-    // Handle regular assistant messages
-    return {
-      role: msg.role as 'user' | 'assistant' | 'system',
-      content: msg.content || '',
-    } as ChatCompletionMessageParam;
-  });
+  const conversationMessages: ChatCompletionMessageParam[] = history.map(convertMessage);
 
   // Prepend system prompt
   const systemPrompt = createSystemPrompt(model, sop, currentStepId);
@@ -114,6 +140,89 @@ function prepareConversationMessages(
   } as ChatCompletionMessageParam);
 
   return conversationMessages;
+}
+
+/**
+ * Loads SOP data for the current chat if active
+ */
+function loadActiveSOP(numChatId: number) {
+  const sopRun = getActiveSOPRun(numChatId);
+  let sop = undefined;
+  if (sopRun) {
+    sop = getSOP(sopRun.sopId);
+  }
+  return { sopRun, sop };
+}
+
+/**
+ * Handles SOP step determination and updates
+ */
+async function determineAndUpdateStep(
+  sop: any,
+  currentStepId: string | undefined,
+  sopRun: any,
+  history: any[],
+  isSOPStart: boolean,
+  toolContext: ToolExecutionContext
+) {
+  let updatedStepId = currentStepId;
+  let stepDecision: { stepId: string } | null = null;
+  
+  if (sop && currentStepId && !isSOPStart) {
+    const currentStep = sop.steps.find((s: any) => s.id === currentStepId);
+    if (currentStep) {
+      try {
+        stepDecision = await determineNextStep(history, currentStep, sop);
+        
+        // Update the step if it changed
+        if (stepDecision.stepId !== currentStepId && sopRun) {
+          updateSOPRunStep(sopRun.id, stepDecision.stepId);
+          updatedStepId = stepDecision.stepId;
+          toolContext.currentStepId = updatedStepId;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Step transition: ${sopRun.currentStepId} → ${stepDecision.stepId}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error determining next step:', error);
+      }
+    }
+  }
+  
+  return { stepDecision, updatedStepId };
+}
+
+/**
+ * Saves tool-related messages to the database
+ */
+function saveChatMessages(
+  numChatId: number,
+  streamData: any,
+  fullResponse: string
+) {
+  // Save tool messages to database when tools are executed
+  if (streamData.type === 'tool' && streamData.messagesToSave) {
+    for (const msg of streamData.messagesToSave) {
+      if (msg.role === 'assistant' && 'tool_calls' in msg && msg.tool_calls) {
+        saveToolCallMessage(numChatId, msg.tool_calls);
+      } else if (msg.role === 'tool' && 'tool_call_id' in msg && msg.tool_call_id) {
+        saveToolResultMessage(numChatId, msg.tool_call_id, msg.content, streamData.name, streamData.metadata);
+      }
+    }
+  }
+
+  // Save response when stream is done
+  if (streamData.type === 'done' && fullResponse) {
+    saveMessage(numChatId, 'assistant', fullResponse);
+  }
+}
+
+/**
+ * Gets the list of available tools
+ */
+function getAvailableTools() {
+  return [writeDocumentTool, displaySOPTool, proposeSOPEditsTool, overwriteSOPTool, createSOPTool, deleteSOPTool];
 }
 
 /**
@@ -147,12 +256,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Fetch active SOP for this chat if one exists
-    const sopRun = getActiveSOPRun(numChatId);
-    let sop = undefined;
-    if (sopRun) {
-      sop = getSOP(sopRun.sopId);
-    }
+    // Load active SOP if one exists
+    const { sopRun, sop } = loadActiveSOP(numChatId);
 
     // Check if this is an initial SOP start command
     const isSOPStart = isInitialSOPStart(message);
@@ -164,7 +269,6 @@ export async function POST(request: NextRequest) {
 
     // Get conversation history
     const history = getMessages(numChatId);
-    const conversationMessages = prepareConversationMessages(model, history, sop, sopRun?.currentStepId);
 
     // Prepare tool execution context
     const toolContext: ToolExecutionContext = {
@@ -174,35 +278,18 @@ export async function POST(request: NextRequest) {
       currentStepId: sopRun?.currentStepId,
     };
 
-    // Determine next step before generating AI response (if SOP is active and not a start command)
-    let currentStepId = sopRun?.currentStepId;
-    let stepDecision: { stepId: string } | null = null;
-    
-    if (sop && currentStepId && !isSOPStart) {
-      const currentStep = sop.steps.find(s => s.id === currentStepId);
-      if (currentStep) {
-        try {
-          stepDecision = await determineNextStep(history, currentStep, sop);
-          
-          // Update the step if it changed
-          if (stepDecision.stepId !== currentStepId && sopRun) {
-            updateSOPRunStep(sopRun.id, stepDecision.stepId);
-            currentStepId = stepDecision.stepId;
-            toolContext.currentStepId = currentStepId;
-            // Log step transitions only in development
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`Step transition: ${sopRun.currentStepId} → ${stepDecision.stepId}`);
-            }
-          }
-        } catch (error) {
-          console.error('Error determining next step:', error);
-          // Continue with current step if step determination fails
-        }
-      }
-    }
+    // Determine and update current step if needed
+    const { stepDecision, updatedStepId } = await determineAndUpdateStep(
+      sop,
+      sopRun?.currentStepId,
+      sopRun,
+      history,
+      isSOPStart,
+      toolContext
+    );
 
     // Recreate conversation messages with potentially updated step
-    const updatedConversationMessages = prepareConversationMessages(model, history, sop, currentStepId);
+    const updatedConversationMessages = prepareConversationMessages(model, history, sop, updatedStepId);
 
     // Create a ReadableStream for Server-Sent Events
     const encoder = new TextEncoder();
@@ -222,33 +309,23 @@ export async function POST(request: NextRequest) {
           }
 
           // Stream the chat completion with tool support
-          for await (const streamData of handleChatStream(model, updatedConversationMessages, [writeDocumentTool, displaySOPTool, proposeSOPEditsTool, overwriteSOPTool, createSOPTool, deleteSOPTool], toolContext)) {
+          for await (const streamData of handleChatStream(
+            model,
+            updatedConversationMessages,
+            getAvailableTools(),
+            toolContext
+          )) {
             // Accumulate full response for saving
             if (streamData.type === 'content') {
               fullResponse += streamData.content || '';
             }
 
-            // Save tool messages to database when tools are executed
-            if (streamData.type === 'tool' && streamData.messagesToSave) {
-              for (const msg of streamData.messagesToSave) {
-                if (msg.role === 'assistant' && 'tool_calls' in msg && msg.tool_calls) {
-                  // Save the assistant's tool call message
-                  saveToolCallMessage(numChatId, msg.tool_calls);
-                } else if (msg.role === 'tool' && 'tool_call_id' in msg && msg.tool_call_id) {
-                  // Save the tool's result message with tool name and metadata
-                  saveToolResultMessage(numChatId, msg.tool_call_id, msg.content, streamData.name, streamData.metadata);
-                }
-              }
-            }
+            // Save tool-related messages
+            saveChatMessages(numChatId, streamData, fullResponse);
 
             // Send all stream data to client
             const data = JSON.stringify(streamData);
             controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-
-            // Save response when stream is done
-            if (streamData.type === 'done' && fullResponse) {
-              saveMessage(numChatId, 'assistant', fullResponse);
-            }
           }
 
           controller.close();
