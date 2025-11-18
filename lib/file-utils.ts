@@ -178,8 +178,58 @@ export function requiresTextExtraction(file: File): boolean {
 }
 
 /**
+ * Convert XLSX file to LLM-readable text format
+ * Formats each sheet with row-by-row data separated by pipes
+ */
+async function convertXlsxToText(file: File): Promise<string> {
+  try {
+    const xlsx = await import('xlsx');
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = xlsx.read(arrayBuffer, { type: 'array' });
+    
+    const lines: string[] = [];
+    lines.push(`Document: ${file.name}`);
+    lines.push('');
+
+    workbook.SheetNames.forEach((sheetName, sheetIndex) => {
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet) return;
+
+      lines.push(`Sheet ${sheetIndex + 1}: ${sheetName}`);
+      const rows = xlsx.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+      if (!rows.length) {
+        lines.push('[empty sheet]');
+      } else {
+        rows.forEach((row: any, rowIndex: number) => {
+          const normalizedRow = (row as any[]).map((cell) => {
+            if (cell === null || cell === undefined) return '';
+            if (typeof cell === 'string') return cell.trim();
+            return String(cell);
+          });
+
+          const isEmptyRow = normalizedRow.every((cell) => cell === '');
+          if (isEmptyRow) return;
+
+          const rowLabel = `Row ${rowIndex + 1}:`;
+          const rowPayload = normalizedRow.join(' | ');
+          lines.push(`${rowLabel} ${rowPayload}`);
+        });
+      }
+
+      lines.push('');
+    });
+
+    return lines.join('\n');
+  } catch (e) {
+    console.error(`Error converting XLSX to text from ${file.name}:`, e);
+    return `[Error extracting text from ${file.name}: ${e instanceof Error ? e.message : 'Unknown error'}]`;
+  }
+}
+
+/**
  * Extract text from a file (client-side only)
- * Supports: TXT, JSON, DOCX, and other formats
+ * Supports: TXT, JSON, DOCX, XLSX, and other formats
  */
 export async function extractTextFromFile(file: File): Promise<string> {
   if (typeof FileReader === 'undefined') {
@@ -229,9 +279,16 @@ export async function extractTextFromFile(file: File): Promise<string> {
     }
   }
 
-  // For XLSX, PPTX, and other binary formats - return placeholder
+  // For XLSX files, use xlsx library to convert to LLM-readable format
   if (
     file.name.endsWith('.xlsx') ||
+    file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ) {
+    return convertXlsxToText(file);
+  }
+
+  // For PPTX and other binary formats - return placeholder
+  if (
     file.name.endsWith('.pptx') ||
     file.name.endsWith('.doc') ||
     file.name.endsWith('.xls') ||

@@ -75,6 +75,7 @@ export const SOPManagementSOP: SOP = {
         'Each step must have a unique id and stepNumber',
         'nextStep can be a single step id, array of step ids for branching, or "DONE"',
         'dates must be ISO 8601 format',
+        'All HTML templates in assistantOutputFormats MUST use ONLY inline styles. Do NOT use <style> tags. The output formats are converted from HTML to DOCX and while advanced enough to support color, font, and tables, only inline styles (style="...") are supported during this conversion.',
       ],
     }
   ],
@@ -113,7 +114,7 @@ export const SOPManagementSOP: SOP = {
       stepNumber: 3,
       assistantFacingTitle: 'Propose Edits',
       userFacingTitle: 'Review Edits',
-      description: 'Take the SOP object from display_sop_to_user and modify ONLY the specific fields the user requested (e.g., modify assistantOutputFormats[0].template for output format changes, or steps[i].description for step changes). Keep all other fields unchanged. Increment the patch version (e.g., 1.0.0 → 1.0.1). Call propose_sop_edits with the complete modified SOP object. This tool will validate the structure and return the modified SOP for the user to review. If validation fails, fix the issues and try again immediately. Get user approval before advancing.',
+      description: 'Take the SOP object from display_sop_to_user and modify ONLY the specific fields the user requested (e.g., modify assistantOutputFormats[0].template for output format changes, or steps[i].description for step changes). Keep all other fields unchanged. Increment the patch version (e.g., 1.0.0 → 1.0.1). REMEMBER: When editing HTML templates, use ONLY inline styles (style="...") - do NOT add <style> tags, as these will not convert properly to DOCX. Call propose_sop_edits with the complete modified SOP object. This tool will validate the structure and return the modified SOP for the user to review. If validation fails, fix the issues and try again immediately. Get user approval before advancing.',
       referencedDocuments: [],
       expectedOutput: {
         type: 'text',
@@ -155,7 +156,7 @@ export const SOPManagementSOP: SOP = {
       stepNumber: 6,
       assistantFacingTitle: 'Propose New SOP',
       userFacingTitle: 'Review New SOP',
-      description: 'Create a complete new SOP structure based on the user\'s description. Use propose_sop_edits (not create_sop yet) to validate and preview the new SOP structure for the user without saving it. Include all required fields: id (unique kebab-case), name (snake_case), displayName, description, version ("1.0.0"), generalInstructions, steps (array with at least 1 step), assistantOutputFormats, providedTools, and userDocuments. If validation passes, show the user the proposed SOP and get their approval. If validation fails, fix the issues and try again immediately.',
+      description: 'Create a complete new SOP structure based on the user\'s description. Use propose_sop_edits (not create_sop yet) to validate and preview the new SOP structure for the user without saving it. Include all required fields: id (unique kebab-case), name (snake_case), displayName, description, version ("1.0.0"), generalInstructions, steps (array with at least 1 step), assistantOutputFormats, providedTools, and userDocuments. CRITICAL: For any HTML templates in assistantOutputFormats, use ONLY inline styles (style="...") - never add <style> tags, as the output is converted from HTML to DOCX and only inline styles are supported. If validation passes, show the user the proposed SOP and get their approval. If validation fails, fix the issues and try again immediately.',
       referencedDocuments: [],
       expectedOutput: {
         type: 'text',
@@ -372,7 +373,19 @@ export const ContentPlanSOP: SOP = {
       id: 'script-format',
       name: 'Script Format',
       template: `<div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 1000px;">
-  <div style="background-color: #f9f9f9; border-left: 4px solid #4CAF50; padding: 16px; margin-bottom: 24px;">
+  <div style="padding: 16px; margin-bottom: 24px; background-color: #f9f9f9; border-left: 4px solid #333;">
+    <h3 style="margin-top: 0; color: #333;">COLOR KEY & LEGEND</h3>
+    <ul style="list-style: none; padding: 0; margin: 12px 0; font-size: 13px;">
+      <li style="margin-bottom: 8px;"><span style="color: #000; font-weight: bold;">BLACK TEXT:</span> <span style="color: #666;">Your dialogue (what you say on camera)</span></li>
+      <li style="margin-bottom: 8px;"><span style="color: #22863a; font-weight: bold;">GREEN TEXT:</span> <span style="color: #666;">Areas for your personalization - details only you know</span></li>
+      <li style="margin-bottom: 8px;"><span style="color: #6f42c1; font-weight: bold;">PURPLE TEXT:</span> <span style="color: #666;">Actions/Director's notes (what you do on camera)</span></li>
+      <li style="margin-bottom: 8px;"><span style="color: #0366d6; font-weight: bold;">BLUE TEXT:</span> <span style="color: #666;">B-Roll you will film (supplemental footage)</span></li>
+      <li style="margin-bottom: 8px;"><span style="color: #cb2431; font-weight: bold;">RED TEXT:</span> <span style="color: #666;">Editor notes (ignore when filming)</span></li>
+    </ul>
+    <p style="color: #666; font-size: 13px; margin-top: 12px; margin-bottom: 0;"><strong>LEFT COLUMN - Notes & B-Roll:</strong> ECU (extreme close up), CU (close up), MS (mid shot), WS (wide shot), TXT (text on screen)</p>
+  </div>
+
+  <div style="padding: 16px; margin-bottom: 24px;">
     <h3 style="margin-top: 0; color: #333;">Key Information</h3>
     <ul style="list-style: none; padding: 0; color: #666;">
       <li style="margin-bottom: 8px;"><strong>Video Format:</strong> [type]</li>
@@ -392,21 +405,56 @@ export const ContentPlanSOP: SOP = {
     </thead>
     <tbody>
       <tr>
-        <td style="border: 1px solid #ddd; padding: 12px; vertical-align: top; color: #666;">[filming notes and actions]</td>
-        <td style="border: 1px solid #ddd; padding: 12px; vertical-align: top; color: #666;">[dialogue]</td>
+        <td style="border: 1px solid #ddd; padding: 12px; vertical-align: top;">
+          <span style="color: #6f42c1;"><strong>MS (framed from waist up)</strong></span>
+          <br />
+          <span style="color: #0366d6;"><strong>B-Roll:</strong> [describe supplemental footage]</span>
+          <br />
+          <span style="color: #666;">Additional notes and context for the action</span>
+        </td>
+        <td style="border: 1px solid #ddd; padding: 12px; vertical-align: top;">
+          <span style="color: #000;"><strong>[YOUR NAME]:</strong> This is your dialogue. You will say these lines on camera.</span>
+          <br />
+          <br />
+          <span style="color: #22863a;"><strong>[Add your personal detail/example here]</strong></span>
+          <br />
+          <br />
+          <span style="color: #cb2431;"><em>Red note for editor - ignore this</em></span>
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #ddd; padding: 12px; vertical-align: top;">
+          <span style="color: #6f42c1;"><strong>CU (two feet from camera)</strong></span>
+          <br />
+          <span style="color: #666;">Action notes about what you're doing</span>
+        </td>
+        <td style="border: 1px solid #ddd; padding: 12px; vertical-align: top;">
+          <span style="color: #000;"><strong>VO:</strong> (Voice Over) This is your dialogue recorded just for audio.</span>
+        </td>
       </tr>
     </tbody>
   </table>
 
-  <div style="margin-top: 20px; padding: 12px; background-color: #fff3cd; border-radius: 4px; font-size: 12px; color: #666;">
-    <p style="margin: 0;"><strong>Requirements:</strong> Script length ~1:15-1:30 | Conversational tone | No emojis | No dashes in dialogue</p>
+  <div style="margin-top: 24px; padding: 16px; background-color: #f9f9f9;">
+    <h3 style="margin-top: 0; color: #333;">Video Description</h3>
+    <p style="color: #666; font-style: italic;">[Add a short, authentic description of the video. Keep it brief and personalized!]</p>
   </div>
+
+  <p style="color: #999; font-size: 12px; margin-top: 16px;"><em>Note: Feel free to adjust the script to match your authentic voice and business. Only you can sound like you!</em></p>
 </div>`,
       requirements: [
-        'Script length ~1:15-1:30 (judged assuming the speaker talks at a moderate pace)',
-        'conversational tone',
-        'no emojis',
-        'no dashes in dialogue',
+        'Use BLACK TEXT for all dialogue the speaker will say on camera',
+        'Use GREEN TEXT for personalization areas - details only the creator knows',
+        'Use PURPLE TEXT for all actions and director\'s notes',
+        'Use BLUE TEXT for B-Roll descriptions and supplemental footage',
+        'Use RED TEXT for editor notes (should be minimal)',
+        'LEFT COLUMN: Include camera directions (ECU, CU, MS, WS) and B-Roll descriptions',
+        'Include two rows minimum with varied shot types and a mix of on-camera dialogue and VO',
+        'Script length approximately 1:15-1:30 (moderate speaking pace)',
+        'Conversational and authentic tone',
+        'Include a short video description at the bottom',
+        'No emojis in dialogue',
+        'No dashes in dialogue',
       ],
     }
   ],

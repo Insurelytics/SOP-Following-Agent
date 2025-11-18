@@ -31,12 +31,21 @@ export async function POST(request: NextRequest) {
     // Convert HTML to DOCX
     const docxBuffer = await convertHtmlToDocx(html);
 
+    // Ensure headers only contain ASCII so undici can build them
+    const asciiFilename = filename
+      .replace(/["\\]/g, '')
+      .replace(/[^\x20-\x7E]+/g, '-')
+      .trim()
+      .replace(/^[-]+|[-]+$/g, '') || 'document';
+    const encodedFilename = encodeURIComponent(filename);
+    const contentDisposition = `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`;
+
     // Return the DOCX file
     return new Response(docxBuffer as any, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': contentDisposition,
       },
     });
   } catch (error) {
