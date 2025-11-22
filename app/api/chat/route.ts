@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
-import { writeDocumentTool, displaySOPTool, proposeSOPEditsTool, overwriteSOPTool, createSOPTool, deleteSOPTool, DEFAULT_MODEL } from '@/lib/openai';
-import { saveMessage, getMessages, getChat, getActiveSOPRun, getSOP, saveToolCallMessage, saveToolResultMessage, updateSOPRunStep } from '@/lib/db';
+import { writeDocumentTool, displaySOPTool, overwriteSOPTool, createSOPTool, deleteSOPTool, DEFAULT_MODEL } from '@/lib/openai';
+import { saveMessage, getMessages, getChat, getActiveSOPRun, getSOP, saveToolCallMessage, saveToolResultMessage, updateSOPRunStep, getLastMessage } from '@/lib/db';
 import { createSystemPrompt, isInitialSOPStart } from '@/lib/services/prompt';
 import { handleChatStream } from '@/lib/services/chat-stream';
 import { determineNextStep } from '@/lib/services/stepManager';
+import { getThread, getLatestLeafId } from '@/lib/utils/message-tree';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import type { ToolExecutionContext } from '@/lib/services/tools';
 
@@ -199,22 +200,42 @@ async function determineAndUpdateStep(
 function saveChatMessages(
   numChatId: number,
   streamData: any,
-  fullResponse: string
+  fullResponse: string,
+  parentMessageId: number
 ) {
   // Save tool messages to database when tools are executed
   if (streamData.type === 'tool' && streamData.messagesToSave) {
     for (const msg of streamData.messagesToSave) {
       if (msg.role === 'assistant' && 'tool_calls' in msg && msg.tool_calls) {
-        saveToolCallMessage(numChatId, msg.tool_calls);
+        saveToolCallMessage(numChatId, msg.tool_calls, parentMessageId);
       } else if (msg.role === 'tool' && 'tool_call_id' in msg && msg.tool_call_id) {
-        saveToolResultMessage(numChatId, msg.tool_call_id, msg.content, streamData.name, streamData.metadata);
+        // Tool results typically follow the assistant message that called them
+        // But here we are just linearizing for storage. Ideally tool result parent is the tool call message.
+        // For now, let's assume sequential for tool chains in this function is tricky without tracking IDs.
+        // However, saveToolResultMessage appends to the list.
+        // If we want strict tree, we need the ID of the assistant message that just got saved.
+        // But `saveToolCallMessage` returns the message.
+        
+        // NOTE: This helper is simplifying things. In a real tree, we'd need to chain these IDs.
+        // For now, we'll trust that tool chains are linear segments. 
+        // We can use the parentMessageId passed in (which is the user message) for the first tool call,
+        // but subsequent messages need to chain.
+        // Since `streamData.messagesToSave` is an array, we should chain them here locally?
+        // Or just link all to the user message? Linking all to user message makes them siblings.
+        // We probably want them to be sequential.
+        
+        // Let's just save them. The `saveMessage` in db doesn't enforce unique parents for linear history yet?
+        // No, parent_message_id logic means one parent.
+        // So we need to chain them.
+        
+        // Refactoring this helper to track the "last saved message ID"
       }
     }
   }
 
   // Save response when stream is done
   if (streamData.type === 'done' && fullResponse) {
-    saveMessage(numChatId, 'assistant', fullResponse);
+    saveMessage(numChatId, 'assistant', fullResponse, undefined, parentMessageId);
   }
 }
 
@@ -222,7 +243,7 @@ function saveChatMessages(
  * Gets the list of available tools
  */
 function getAvailableTools() {
-  return [writeDocumentTool, displaySOPTool, proposeSOPEditsTool, overwriteSOPTool, createSOPTool, deleteSOPTool];
+  return [writeDocumentTool, displaySOPTool, overwriteSOPTool, createSOPTool, deleteSOPTool];
 }
 
 /**
@@ -232,7 +253,7 @@ function getAvailableTools() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { chatId, message, files } = body;
+    const { chatId, message, files, parentMessageId } = body;
     const model = DEFAULT_MODEL;
 
     // Validate request
@@ -256,19 +277,54 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Get all messages to determine parent if not provided
+    const allMessages = getMessages(numChatId);
+    
+    // Determine parent message ID
+    let effectiveParentMessageId = parentMessageId;
+    if (effectiveParentMessageId === undefined) {
+      if (allMessages.length > 0) {
+        // If no parent specified, append to the latest leaf
+        effectiveParentMessageId = getLatestLeafId(allMessages);
+      } else {
+        effectiveParentMessageId = null;
+      }
+    }
+
     // Load active SOP if one exists
     const { sopRun, sop } = loadActiveSOP(numChatId);
 
     // Check if this is an initial SOP start command
     const isSOPStart = isInitialSOPStart(message);
     
+    let userMessageId: number | undefined;
+
     // Save user message only if it's not a system command
     if (!isSOPStart) {
-      saveMessage(numChatId, 'user', message, files);
+      const savedMsg = saveMessage(numChatId, 'user', message, files, effectiveParentMessageId);
+      userMessageId = savedMsg.id;
+      // Update effective parent to be this new user message for subsequent AI responses
+      effectiveParentMessageId = userMessageId;
     }
 
-    // Get conversation history
-    const history = getMessages(numChatId);
+    // Get conversation thread based on the current leaf (user message)
+    // If it was a system command (no user message saved), we use the previous leaf
+    const history = isSOPStart ? [] : getThread(userMessageId!, [...allMessages, { id: userMessageId!, chat_id: numChatId, role: 'user', content: message, parent_message_id: parentMessageId === undefined ? getLatestLeafId(allMessages) : parentMessageId, created_at: new Date().toISOString() } as any]);
+    
+    // If we just saved the message, we should actually re-fetch or construct correctly.
+    // Better: We have 'savedMsg'. We can just append it to the thread if we found one.
+    // Actually, let's just re-fetch all messages to be safe and clean, although less efficient?
+    // Or just trust `getThread` works if we pass the updated list.
+    // The `history` variable is what we pass to the AI.
+    // If isSOPStart, we pass empty history? Or do we need history? 
+    // Original code: const history = getMessages(numChatId);
+    // If isSOPStart, it might assume empty or existing history.
+    
+    // Let's stick to: if !isSOPStart, we have a user message.
+    // We need the thread ending at that user message.
+    // We can re-fetch all messages including the new one.
+    const updatedAllMessages = getMessages(numChatId);
+    const thread = userMessageId ? getThread(userMessageId, updatedAllMessages) : updatedAllMessages; // fallback if no user msg (SOP start)
 
     // Prepare tool execution context
     const toolContext: ToolExecutionContext = {
@@ -283,13 +339,13 @@ export async function POST(request: NextRequest) {
       sop,
       sopRun?.currentStepId,
       sopRun,
-      history,
+      thread,
       isSOPStart,
       toolContext
     );
 
     // Recreate conversation messages with potentially updated step
-    const updatedConversationMessages = prepareConversationMessages(model, history, sop, updatedStepId);
+    const updatedConversationMessages = prepareConversationMessages(model, thread, sop, updatedStepId);
 
     // Create a ReadableStream for Server-Sent Events
     const encoder = new TextEncoder();
@@ -297,6 +353,7 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         try {
           let fullResponse = '';
+          let lastSavedMessageId = effectiveParentMessageId;
 
           // Send step decision if one was made
           if (stepDecision && stepDecision.stepId !== sopRun?.currentStepId) {
@@ -321,11 +378,30 @@ export async function POST(request: NextRequest) {
             }
 
             // Save tool-related messages
-            saveChatMessages(numChatId, streamData, fullResponse);
+            // We need to chain them properly
+            if (streamData.type === 'tool' && streamData.messagesToSave) {
+                for (const msg of streamData.messagesToSave) {
+                    let savedToolMsg;
+                    if (msg.role === 'assistant' && 'tool_calls' in msg && msg.tool_calls) {
+                        savedToolMsg = saveToolCallMessage(numChatId, msg.tool_calls, lastSavedMessageId!);
+                    } else if (msg.role === 'tool' && 'tool_call_id' in msg && msg.tool_call_id) {
+                        savedToolMsg = saveToolResultMessage(numChatId, msg.tool_call_id, msg.content, streamData.name, streamData.metadata, lastSavedMessageId!);
+                    }
+                    
+                    if (savedToolMsg) {
+                        lastSavedMessageId = savedToolMsg.id;
+                    }
+                }
+            }
 
             // Send all stream data to client
             const data = JSON.stringify(streamData);
             controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+          }
+          
+          // Save final assistant response
+          if (fullResponse) {
+             saveMessage(numChatId, 'assistant', fullResponse, undefined, lastSavedMessageId!);
           }
 
           controller.close();

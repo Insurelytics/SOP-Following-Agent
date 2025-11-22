@@ -173,3 +173,69 @@ body,
   color: transparent !important;
 }
 
+/* HTML content styling for dark theme */
+.html-content-dark {
+  color: var(--foreground) !important;
+}
+
+.html-content-dark * {
+  color: inherit;
+}
+
+/* Override common inline styles that don't work in dark theme */
+.html-content-dark h1,
+.html-content-dark h2,
+.html-content-dark h3,
+.html-content-dark h4,
+.html-content-dark h5,
+.html-content-dark h6 {
+  color: var(--foreground) !important;
+}
+
+.html-content-dark p {
+  color: var(--foreground) !important;
+}
+
+.html-content-dark li {
+  color: var(--foreground) !important;
+}
+
+.html-content-dark a {
+  color: #60a5fa !important;
+  text-decoration: underline;
+}
+
+.html-content-dark a:hover {
+  opacity: 0.8;
+}
+
+.html-content-dark strong,
+.html-content-dark b {
+  color: var(--foreground) !important;
+  font-weight: 600;
+}
+
+.html-content-dark em,
+.html-content-dark i {
+  color: var(--foreground-muted) !important;
+}
+
+.html-content-dark span {
+  color: var(--foreground) !important;
+}
+
+.html-content-dark ol,
+.html-content-dark ul {
+  color: var(--foreground) !important;
+}
+
+.html-content-dark table {
+  color: var(--foreground) !important;
+}
+
+.html-content-dark td,
+.html-content-dark th {
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+

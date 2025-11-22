@@ -5,6 +5,7 @@ import { Message, Chat } from '@/lib/db';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
 import { fileToBase64, extractTextFromFile } from '@/lib/file-utils';
+import { getLatestLeafId, getThread } from '@/lib/utils/message-tree';
 
 interface ChatInterfaceProps {
   chatId: number;
@@ -29,6 +30,7 @@ export default function ChatInterface({
   onSOPRefresh,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [currentLeafId, setCurrentLeafId] = useState<number | null>(null);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,6 +62,10 @@ export default function ChatInterface({
       .then((res) => res.json())
       .then((data) => {
         setMessages(data);
+        // Initialize current leaf to the latest one if not set
+        const latestLeaf = getLatestLeafId(data);
+        setCurrentLeafId(latestLeaf || null);
+        
         setIsLoading(false);
         
         // Track the number of messages we started with for this chat
@@ -106,11 +112,11 @@ export default function ChatInterface({
     }
   }, [messages, onOpenDocument]);
 
-  // Auto-open SOP drafts when they are created (from display_sop_to_user, propose_sop_edits, etc.)
+  // Auto-open SOP drafts when they are created (from display_sop_to_user, overwrite_sop, create_sop)
   useEffect(() => {
     if (messages.length > initialMessagesCountRef.current) {
       // Look for SOP-related tool calls
-      const sopToolNames = ['display_sop_to_user', 'propose_sop_edits', 'overwrite_sop', 'create_sop'];
+      const sopToolNames = ['display_sop_to_user', 'overwrite_sop', 'create_sop'];
       const toolMessages = messages.filter((msg) => msg.role === 'tool' && msg.tool_name && sopToolNames.includes(msg.tool_name));
       
       if (toolMessages.length > 0) {
@@ -136,7 +142,7 @@ export default function ChatInterface({
     }
   }, [messages, onOpenSOP, onRefreshSOPDrafts]);
 
-  const handleSendMessage = async (message: string, files?: File[]) => {
+  const handleSendMessage = async (message: string, files?: File[], parentMessageId?: number | null) => {
     if (!chatId || isStreaming) return;
 
     let uploadedFiles: Array<{ file_id?: string; filename: string; file_type: string; size: number; is_image: boolean; is_pdf?: boolean; requires_text_extraction?: boolean; base64?: string; extracted_text?: string; error?: string }> = [];
@@ -204,15 +210,25 @@ export default function ChatInterface({
 
     // Only add user message to display if it's not a system command
     if (message !== '[SOP_START]') {
+      const effectiveParentId = parentMessageId !== undefined ? parentMessageId : currentLeafId;
       const userMessage: Message = {
-        id: Date.now(),
+        id: Date.now(), // Temporary ID
         chat_id: chatId,
         role: 'user',
         content: message,
         created_at: new Date().toISOString(),
         file_attachments: uploadedFiles.length > 0 ? JSON.stringify(uploadedFiles) : undefined,
+        parent_message_id: effectiveParentId
       };
-      setMessages((prev) => [...prev, userMessage]);
+      
+      setMessages((prev) => {
+          const newMessages = [...prev, userMessage];
+          return newMessages;
+      });
+      
+      // Optimistically update the current leaf to this new message
+      // This ensures the view switches to the new branch immediately
+      setCurrentLeafId(userMessage.id);
     }
 
     setIsStreaming(true);
@@ -227,7 +243,12 @@ export default function ChatInterface({
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId, message, files: uploadedFiles }),
+        body: JSON.stringify({ 
+          chatId, 
+          message, 
+          files: uploadedFiles,
+          parentMessageId: parentMessageId !== undefined ? parentMessageId : currentLeafId 
+        }),
       });
 
       if (!response.ok) {
@@ -324,6 +345,12 @@ export default function ChatInterface({
       const messagesResponse = await fetch(`/api/messages?chatId=${chatId}`);
       const updatedMessages = await messagesResponse.json();
       setMessages(updatedMessages);
+      
+      // Update current leaf to the latest message in the updated list
+      // This ensures we are looking at the tip of the newly created branch
+      const newLeaf = getLatestLeafId(updatedMessages);
+      if (newLeaf) setCurrentLeafId(newLeaf);
+
       setStreamingMessage('');
       setCurrentToolCall(null);
       setHasContentStarted(false);
@@ -359,7 +386,10 @@ export default function ChatInterface({
       ) : (
         <>
           <MessageList
-            messages={messages}
+            messages={messages} // Pass all messages so MessageList can compute siblings
+            currentLeafId={currentLeafId || undefined}
+            onBranchChange={setCurrentLeafId}
+            onEditMessage={(parentId, content) => handleSendMessage(content, undefined, parentId)}
             streamingMessage={streamingMessage}
             isStreaming={isStreaming}
             currentToolCall={currentToolCall}
@@ -370,7 +400,7 @@ export default function ChatInterface({
             liveDocumentHtml={liveDocumentHtml}
             liveDocumentName={liveDocumentName}
           />
-          <ChatInput onSendMessage={handleSendMessage} disabled={isStreaming} />
+          <ChatInput onSendMessage={(msg, files) => handleSendMessage(msg, files)} disabled={isStreaming} />
         </>
       )}
     </div>

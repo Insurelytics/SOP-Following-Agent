@@ -45,6 +45,20 @@ function migrateDatabase() {
     console.log('Adding file_attachments column to messages table');
     db.exec('ALTER TABLE messages ADD COLUMN file_attachments TEXT');
   }
+
+  if (!columnNames.includes('parent_message_id')) {
+    console.log('Adding parent_message_id column to messages table');
+    db.exec('ALTER TABLE messages ADD COLUMN parent_message_id INTEGER REFERENCES messages(id)');
+    
+    // Link existing messages sequentially
+    const chats = db.prepare('SELECT id FROM chats').all() as { id: number }[];
+    for (const chat of chats) {
+      const messages = db.prepare('SELECT id FROM messages WHERE chat_id = ? ORDER BY created_at ASC').all(chat.id) as { id: number }[];
+      for (let i = 1; i < messages.length; i++) {
+        db.prepare('UPDATE messages SET parent_message_id = ? WHERE id = ?').run(messages[i-1].id, messages[i].id);
+      }
+    }
+  }
 }
 
 // Initialize database schema
@@ -81,8 +95,12 @@ export function initializeDatabase() {
       tool_call_id TEXT,
       tool_name TEXT,
       tool_output_location TEXT,
+      metadata TEXT,
+      file_attachments TEXT,
+      parent_message_id INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+      FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
+      FOREIGN KEY (parent_message_id) REFERENCES messages(id)
     )
   `);
 
@@ -199,6 +217,7 @@ export interface Message {
   tool_name?: string | null; // Name of the tool that was called
   metadata?: string | null; // JSON string for extensible metadata (e.g., documentName, documentId)
   file_attachments?: string | null; // JSON string of file attachment metadata array
+  parent_message_id?: number | null;
   created_at: string;
 }
 
@@ -215,7 +234,7 @@ export interface SOPDraft {
   id: number;
   chat_id: number;
   sop_data: SOP;
-  source_tool?: string; // 'display_sop_to_user', 'propose_sop_edits', 'overwrite_sop', 'create_sop'
+  source_tool?: string; // 'display_sop_to_user', 'overwrite_sop', 'create_sop'
   created_at: string;
 }
 
@@ -282,13 +301,14 @@ export function saveMessage(
   chatId: number,
   role: 'user' | 'assistant' | 'tool',
   content: string,
-  fileAttachments?: Array<{ file_id?: string; filename: string; file_type: string; size: number }>
+  fileAttachments?: Array<{ file_id?: string; filename: string; file_type: string; size: number }>,
+  parentMessageId?: number
 ): Message {
   const fileAttachmentsJson = fileAttachments ? JSON.stringify(fileAttachments) : null;
   const stmt = db.prepare(
-    'INSERT INTO messages (chat_id, role, content, file_attachments) VALUES (?, ?, ?, ?)'
+    'INSERT INTO messages (chat_id, role, content, file_attachments, parent_message_id) VALUES (?, ?, ?, ?, ?)'
   );
-  const result = stmt.run(chatId, role, content, fileAttachmentsJson);
+  const result = stmt.run(chatId, role, content, fileAttachmentsJson, parentMessageId || null);
   
   const selectStmt = db.prepare('SELECT * FROM messages WHERE id = ?');
   return selectStmt.get(result.lastInsertRowid) as Message;
@@ -313,13 +333,14 @@ export function getLastMessage(chatId: number): Message | undefined {
  */
 export function saveToolCallMessage(
   chatId: number,
-  toolCalls: any[]
+  toolCalls: any[],
+  parentMessageId?: number
 ): Message {
   const stmt = db.prepare(
-    'INSERT INTO messages (chat_id, role, content, tool_calls) VALUES (?, ?, ?, ?)'
+    'INSERT INTO messages (chat_id, role, content, tool_calls, parent_message_id) VALUES (?, ?, ?, ?, ?)'
   );
   // Use empty string for content since tool calls are stored separately
-  const result = stmt.run(chatId, 'assistant', '', JSON.stringify(toolCalls));
+  const result = stmt.run(chatId, 'assistant', '', JSON.stringify(toolCalls), parentMessageId || null);
   
   const selectStmt = db.prepare('SELECT * FROM messages WHERE id = ?');
   return selectStmt.get(result.lastInsertRowid) as Message;
@@ -333,10 +354,11 @@ export function saveToolResultMessage(
   toolCallId: string,
   result: any,
   toolName?: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
+  parentMessageId?: number
 ): Message {
   const stmt = db.prepare(
-    'INSERT INTO messages (chat_id, role, content, tool_call_id, tool_name, metadata) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO messages (chat_id, role, content, tool_call_id, tool_name, metadata, parent_message_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
   );
   const resultRow = stmt.run(
     chatId,
@@ -344,7 +366,8 @@ export function saveToolResultMessage(
     JSON.stringify(result),
     toolCallId,
     toolName || null,
-    metadata ? JSON.stringify(metadata) : null
+    metadata ? JSON.stringify(metadata) : null,
+    parentMessageId || null
   );
   
   const selectStmt = db.prepare('SELECT * FROM messages WHERE id = ?');
@@ -682,7 +705,7 @@ export function getAIGeneratedDocument(documentId: number): AIGeneratedDocument 
 
 // SOP Draft operations
 /**
- * Save a draft SOP for viewing in a chat (e.g., from display_sop_to_user, propose_sop_edits)
+ * Save a draft SOP for viewing in a chat (e.g., from display_sop_to_user, overwrite_sop, create_sop)
  */
 export function saveSOPDraft(
   chatId: number,

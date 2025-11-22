@@ -154,76 +154,6 @@ function validateSOPStructure(sop: any): string[] {
 }
 
 /**
- * Executes the propose_sop_edits tool
- * Validates and returns proposed edits without saving
- */
-function executeProposeSOPEditsTool(modifiedSOPString: string, context?: ToolExecutionContext): { result: any; metadata: Record<string, any> } {
-  try {
-    if (!modifiedSOPString) {
-      console.log('modifiedSOP is missing');
-      return {
-        result: `Error: modifiedSOP parameter is missing or empty. Pass the complete SOP as a JSON string. Try again immediately with the full SOP JSON.`,
-        metadata: {},
-      };
-    }
-
-    let modifiedSOP: any;
-    try {
-      modifiedSOP = JSON.parse(modifiedSOPString);
-    } catch (parseError) {
-      return {
-        result: `Error: Could not parse modifiedSOP as JSON. Ensure it's valid JSON. Try again immediately with properly formatted JSON.`,
-        metadata: {},
-      };
-    }
-
-    const validationErrors = validateSOPStructure(modifiedSOP);
-    console.log('validationErrors:', validationErrors);
-    if (validationErrors.length > 0) {
-      return {
-        result: `Validation failed - the SOP structure has issues. Errors:\n${validationErrors.join('\n')}\n\nReview these errors and try again immediately with a corrected SOP object.`,
-        metadata: {
-          valid: false,
-          errors: validationErrors,
-        },
-      };
-    }
-
-    // Update the timestamp
-    modifiedSOP.updatedAt = new Date().toISOString();
-    console.log('modifiedSOP:', modifiedSOP);
-
-    // Save as draft for display
-    let draftId: number | undefined;
-    if (context?.chatId) {
-      try {
-        const { saveSOPDraft } = require('@/lib/db');
-        const draft = saveSOPDraft(context.chatId, modifiedSOP, 'propose_sop_edits');
-        draftId = draft.id;
-      } catch (e) {
-        console.error('Error saving SOP draft:', e);
-      }
-    }
-
-    return {
-      result: modifiedSOP,
-      metadata: {
-        valid: true,
-        sopId: modifiedSOP.id,
-        displayName: modifiedSOP.displayName,
-        draftId: draftId,
-      },
-    };
-  } catch (error) {
-    console.log('error:', error);
-    return {
-      result: `Error validating SOP edits: ${error instanceof Error ? error.message : 'Unknown error'}.`,
-      metadata: {},
-    };
-  }
-}
-
-/**
  * Executes the overwrite_sop tool
  * Applies approved edits and saves to database
  */
@@ -495,10 +425,6 @@ export function executeSingleTool(toolCall: ToolCall, context?: ToolExecutionCon
       metadata = toolResult.metadata;
     } else if (toolCall.function.name === 'display_sop_to_user') {
       const toolResult = executeDisplaySOPTool(args.sopId, context);
-      result = toolResult.result;
-      metadata = toolResult.metadata;
-    } else if (toolCall.function.name === 'propose_sop_edits') {
-      const toolResult = executeProposeSOPEditsTool(args.modifiedSOP, context);  // args.modifiedSOP is a JSON string
       result = toolResult.result;
       metadata = toolResult.metadata;
     } else if (toolCall.function.name === 'overwrite_sop') {

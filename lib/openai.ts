@@ -69,7 +69,7 @@ export const displaySOPTool: ChatCompletionTool = {
   type: 'function',
   function: {
     name: 'display_sop_to_user',
-    description: 'Retrieves and displays an existing SOP to the user. This tool returns the complete SOP JSON object that you can then modify and pass to propose_sop_edits. Use this first when you need to edit or review an existing SOP. Example: call with sopId "pdf-summary" to get the PDF Summary SOP structure, which you can then examine and modify for the user.',
+    description: 'Retrieves and displays an existing SOP to the user. This tool returns the complete SOP JSON object that you can then modify and pass to overwrite_sop. Use this first when you need to edit or review an existing SOP. Example: call with sopId "pdf-summary" to get the PDF Summary SOP structure, which you can then examine and modify for the user.',
     parameters: {
       type: 'object',
       properties: {
@@ -84,28 +84,6 @@ export const displaySOPTool: ChatCompletionTool = {
 };
 
 /**
- * Propose SOP edits tool for SOP management
- * Validates and previews proposed edits without saving
- */
-export const proposeSOPEditsTool: ChatCompletionTool = {
-  type: 'function',
-  function: {
-    name: 'propose_sop_edits',
-    description: 'Accepts the full edited SOP object, and displays it to the user for approval.  Has no existing context or knowledge of the SOP, so it must be passed in every time.',
-    parameters: {
-      type: 'object',
-      properties: {
-        modifiedSOP: {
-          type: 'string',
-          description: 'REQUIRED: The complete modified SOP as a JSON string with all fields (id, name, displayName, description, version, generalInstructions, userDocuments, assistantOutputFormats, steps, providedTools, createdAt, updatedAt)',
-        },
-      },
-      required: ['modifiedSOP'],
-    },
-  },
-};
-
-/**
  * Overwrite SOP tool for SOP management
  * Applies approved edits and saves the modified SOP to the database
  */
@@ -113,7 +91,7 @@ export const overwriteSOPTool: ChatCompletionTool = {
   type: 'function',
   function: {
     name: 'overwrite_sop',
-    description: 'Saves approved changes to database. Accepts the full edited SOP as a JSON string. Only call after user approval from propose_sop_edits.',
+    description: 'Saves approved changes to database. Accepts the full edited SOP as a JSON string. Get user approval before calling this tool.',
     parameters: {
       type: 'object',
       properties: {
@@ -135,7 +113,7 @@ export const createSOPTool: ChatCompletionTool = {
   type: 'function',
   function: {
     name: 'create_sop',
-    description: 'Creates and saves new SOP to database. Accepts the full new SOP as a JSON string. Only call after user approval from propose_sop_edits.',
+    description: 'Creates and saves new SOP to database. Accepts the full new SOP as a JSON string. Get user approval before calling this tool.',
     parameters: {
       type: 'object',
       properties: {
