@@ -28,7 +28,7 @@ export default function ThemePicker() {
         onClick={() => setIsOpen(!isOpen)}
         className="text-xs text-foreground-muted hover:text-foreground-muted-hover transition-colors w-full text-center"
       >
-        Signed in as <span className="text-foreground font-medium">dev-test</span>
+        Signed in as <span className="text-foreground font-medium">Demo User</span>
         <div className="text-xs text-foreground-muted mt-1">Theme: {currentThemeLabel}</div>
       </button>
 

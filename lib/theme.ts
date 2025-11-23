@@ -3,7 +3,7 @@
  * Centralized theme colors that can be easily customized
  */
 
-export type ThemeName = 'light' | 'dark';
+export type ThemeName = 'light' | 'dark' | 'dim' | 'blue' | 'warm' | 'soft';
 
 export interface Theme {
   name: ThemeName;
@@ -88,9 +88,126 @@ export const THEMES: Record<ThemeName, Theme> = {
     buttonBg: '#6366f1',
     buttonHoverBg: '#4f46e5',
   },
+  dim: {
+    name: 'dim',
+    // Primary colors
+    primary: '#4b5563',
+    primaryHover: '#6b7280',
+    // Backgrounds
+    background: '#18181b',
+    backgroundSecondary: '#27272a',
+    backgroundTertiary: '#3f3f46',
+    // Text colors
+    foreground: '#e5e7eb',
+    foregroundMuted: '#9ca3af',
+    foregroundMutedHover: '#d1d5db',
+    // Borders
+    border: '#3f3f46',
+    // Input/Form
+    input: '#18181b',
+    inputBorder: '#3f3f46',
+    inputFocus: '#4b5563',
+    // Messages
+    messageUserBg: '#4b5563',
+    messageAssistantText: '#e5e7eb',
+    // UI Elements
+    sidebarBg: '#18181b',
+    buttonBg: '#4b5563',
+    buttonHoverBg: '#6b7280',
+  },
+  blue: {
+    name: 'blue',
+    // Primary colors
+    primary: '#2563eb',
+    primaryHover: '#1d4ed8',
+    // Backgrounds
+    background: '#020617',
+    backgroundSecondary: '#0f172a',
+    backgroundTertiary: '#1e293b',
+    // Text colors
+    foreground: '#e5e7eb',
+    foregroundMuted: '#9ca3af',
+    foregroundMutedHover: '#d1d5db',
+    // Borders
+    border: '#1e293b',
+    // Input/Form
+    input: '#020617',
+    inputBorder: '#1e293b',
+    inputFocus: '#2563eb',
+    // Messages
+    messageUserBg: '#2563eb',
+    messageAssistantText: '#e5e7eb',
+    // UI Elements
+    sidebarBg: '#020617',
+    buttonBg: '#2563eb',
+    buttonHoverBg: '#1d4ed8',
+  },
+  warm: {
+    name: 'warm',
+    // Primary colors
+    primary: '#ea580c',
+    primaryHover: '#c2410c',
+    // Backgrounds
+    background: '#fefce8',
+    backgroundSecondary: '#fef3c7',
+    backgroundTertiary: '#fde68a',
+    // Text colors
+    foreground: '#1f2937',
+    foregroundMuted: '#6b7280',
+    foregroundMutedHover: '#374151',
+    // Borders
+    border: '#facc15',
+    // Input/Form
+    input: '#ffffff',
+    inputBorder: '#facc15',
+    inputFocus: '#f97316',
+    // Messages
+    messageUserBg: '#f97316',
+    messageAssistantText: '#1f2937',
+    // UI Elements
+    sidebarBg: '#fef9c3',
+    buttonBg: '#ea580c',
+    buttonHoverBg: '#c2410c',
+  },
+  soft: {
+    name: 'soft',
+    // Primary colors
+    primary: '#0ea5e9',
+    primaryHover: '#0284c7',
+    // Backgrounds
+    background: '#f9fafb',
+    backgroundSecondary: '#e5f3fb',
+    backgroundTertiary: '#dbeafe',
+    // Text colors
+    foreground: '#0f172a',
+    foregroundMuted: '#6b7280',
+    foregroundMutedHover: '#1f2937',
+    // Borders
+    border: '#bfdbfe',
+    // Input/Form
+    input: '#ffffff',
+    inputBorder: '#bfdbfe',
+    inputFocus: '#0ea5e9',
+    // Messages
+    messageUserBg: '#0ea5e9',
+    messageAssistantText: '#0f172a',
+    // UI Elements
+    sidebarBg: '#eff6ff',
+    buttonBg: '#0ea5e9',
+    buttonHoverBg: '#0284c7',
+  },
 } as const;
 
 export const THEME = THEMES.dark;
+
+/**
+ * Helper: which themes should be treated as "dark mode" for styling
+ */
+export const DARK_THEMES: ThemeName[] = ['dark', 'dim', 'blue'];
+
+export function isDarkTheme(themeName: ThemeName): boolean {
+  return DARK_THEMES.includes(themeName);
+}
 
 /**
  * Apply a theme by updating CSS variables and HTML class
@@ -103,7 +220,7 @@ export function applyTheme(themeName: ThemeName) {
   }
   
   // Update HTML class for Tailwind dark mode
-  if (themeName === 'dark') {
+  if (isDarkTheme(themeName)) {
     document.documentElement.classList.add('dark');
   } else {
     document.documentElement.classList.remove('dark');
