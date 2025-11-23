@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { writeDocumentTool, displaySOPTool, overwriteSOPTool, createSOPTool, deleteSOPTool, DEFAULT_MODEL } from '@/lib/openai';
-import { saveMessage, getMessages, getChat, getActiveSOPRun, getSOP, saveToolCallMessage, saveToolResultMessage, updateSOPRunStep, getLastMessage } from '@/lib/db';
+import { saveMessage, getMessages, getChat, getActiveSOPRun, getSOP, saveToolCallMessage, saveToolResultMessage, updateSOPRunStep, getLastMessage, updateChatTitle } from '@/lib/db';
 import { createSystemPrompt, isInitialSOPStart } from '@/lib/services/prompt';
 import { handleChatStream } from '@/lib/services/chat-stream';
 import { determineNextStep } from '@/lib/services/stepManager';
 import { getThread, getLatestLeafId } from '@/lib/utils/message-tree';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import type { ToolExecutionContext } from '@/lib/services/tools';
+import { generateChatTitleFromHistory } from '@/lib/services/chatName';
 
 /**
  * Validates the incoming request
@@ -325,6 +326,31 @@ export async function POST(request: NextRequest) {
     // We can re-fetch all messages including the new one.
     const updatedAllMessages = getMessages(numChatId);
     const thread = userMessageId ? getThread(userMessageId, updatedAllMessages) : updatedAllMessages; // fallback if no user msg (SOP start)
+
+    // If this is the very first real user message, trigger AI-based chat naming.
+    // We only do this once per chat, and we never rename on subsequent edits.
+    if (!isSOPStart && userMessageId) {
+      const userMessages = updatedAllMessages.filter((m) => m.role === 'user');
+      const isFirstUserMessage = userMessages.length === 1;
+      const hasDefaultTitle = !chat.title || chat.title === 'New chat';
+
+      if (isFirstUserMessage && hasDefaultTitle) {
+        // Fire and forget: we don't want to block the main chat stream on naming.
+        (async () => {
+          try {
+            const title = await generateChatTitleFromHistory(
+              thread.map((m: any) => ({ role: m.role, content: m.content })),
+              sop
+            );
+            if (title) {
+              updateChatTitle(numChatId, title);
+            }
+          } catch (error) {
+            console.error('Error generating chat title:', error);
+          }
+        })();
+      }
+    }
 
     // Prepare tool execution context
     const toolContext: ToolExecutionContext = {

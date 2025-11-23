@@ -216,6 +216,7 @@ export default function Home() {
                 }}
                 onRefreshSOPDrafts={() => setSOPDraftRefreshTrigger(prev => prev + 1)}
                 onSOPRefresh={() => setSOPRefreshTrigger(prev => prev + 1)}
+                onChatUpdated={loadChats}
               />
             </div>
 

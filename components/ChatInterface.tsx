@@ -14,6 +14,7 @@ interface ChatInterfaceProps {
   onOpenSOP?: () => void;
   onRefreshSOPDrafts?: () => void;
   onSOPRefresh?: () => void;
+  onChatUpdated?: () => void;
 }
 
 interface ToolCall {
@@ -28,6 +29,7 @@ export default function ChatInterface({
   onOpenSOP,
   onRefreshSOPDrafts,
   onSOPRefresh,
+  onChatUpdated,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentLeafId, setCurrentLeafId] = useState<number | null>(null);
@@ -329,6 +331,8 @@ export default function ChatInterface({
               } else if (data.type === 'done') {
                 // Stream complete - trigger SOP header refresh to show step updates
                 onSOPRefresh?.();
+                // Chat metadata (including title) may have been updated; refresh chats
+                onChatUpdated?.();
                 break;
               } else if (data.type === 'error') {
                 console.error('Stream error:', data.message);

@@ -258,7 +258,9 @@ export function createChat(userId: number, model: string): Chat {
   const stmt = db.prepare(
     'INSERT INTO chats (user_id, model, title) VALUES (?, ?, ?)'
   );
-  const result = stmt.run(userId, model, `Chat ${Date.now()}`);
+  // New chats start with a generic name until the first user message
+  // triggers AI-based naming.
+  const result = stmt.run(userId, model, 'New chat');
   
   const selectStmt = db.prepare('SELECT * FROM chats WHERE id = ?');
   return selectStmt.get(result.lastInsertRowid) as Chat;
