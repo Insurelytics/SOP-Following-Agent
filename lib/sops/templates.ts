@@ -513,5 +513,5 @@ export const ContentPlanSOP: SOP = {
  * Get all default SOPs
  */
 export function getDefaultSOPs(): SOP[] {
-  return [SOPManagementSOP, PDFSummarySOP, ContentPlanSOP];
+  return [SOPManagementSOP, ContentPlanSOP];
 }
