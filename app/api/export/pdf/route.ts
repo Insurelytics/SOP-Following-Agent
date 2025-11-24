@@ -221,7 +221,8 @@ export async function POST(request: NextRequest) {
     const pdfFilename = filename.replace(/\.[^/.]+$/, '.pdf');
 
     // Return the PDF file
-    return new Response(pdfBuffer, {
+    // Cast pdfBuffer to satisfy the Response body type, which does not include Node's Buffer by default
+    return new Response(pdfBuffer as any, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

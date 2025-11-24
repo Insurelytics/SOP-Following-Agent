@@ -62,14 +62,14 @@ export default function MessageList({
     return getThread(currentLeafId, messages);
   }, [currentLeafId, messages]);
 
-  // Scroll to bottom when first entering a chat or when streaming starts
+  // Scroll to bottom when first entering a chat or when messages update
   useEffect(() => {
     if (messages.length > 0 && !isStreaming) {
         // Only scroll on load, not every render unless needed? 
         // Logic kept simple: scroll to bottom on updates roughly.
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [chatId, messages.length]);
+  }, [chatId, messages.length, isStreaming]);
 
   // Auto-scroll live document preview as new content streams in
   useEffect(() => {
@@ -319,10 +319,10 @@ export default function MessageList({
                       </div>
                     ) : (
                       <div className="max-w-none break-words prose prose-sm sm:prose-base lg:prose-lg prose-headings:my-2 prose-p:my-2 prose-li:my-0 prose-code:bg-background-tertiary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background-tertiary prose-pre:p-3 prose-pre:rounded dark:prose-invert">
-                        {isHTMLContent(message.content) ? (
-                          <div className="html-content-dark" dangerouslySetInnerHTML={{ __html: message.content }} />
+                        {isHTMLContent(message.content || '') ? (
+                          <div className="html-content-dark" dangerouslySetInnerHTML={{ __html: message.content || '' }} />
                         ) : (
-                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                          <ReactMarkdown>{message.content || ''}</ReactMarkdown>
                         )}
                       </div>
                     )}
