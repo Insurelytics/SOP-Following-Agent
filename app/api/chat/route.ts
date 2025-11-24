@@ -281,22 +281,30 @@ export async function POST(request: NextRequest) {
     // Get all messages to determine parent if not provided
     const allMessages = getMessages(numChatId);
     
+    // Check if this is an initial SOP start command
+    const isSOPStart = isInitialSOPStart(message);
+    
     // Determine parent message ID
-    let effectiveParentMessageId = parentMessageId;
-    if (effectiveParentMessageId === undefined) {
-      if (allMessages.length > 0) {
-        // If no parent specified, append to the latest leaf
-        effectiveParentMessageId = getLatestLeafId(allMessages);
-      } else {
-        effectiveParentMessageId = null;
+    let effectiveParentMessageId: number | null;
+    
+    if (isSOPStart) {
+      // For SOP starts, always use null as parent (start a new conversation thread)
+      effectiveParentMessageId = null;
+    } else {
+      // For regular messages, determine parent based on provided ID or latest leaf
+      effectiveParentMessageId = parentMessageId ?? undefined;
+      if (effectiveParentMessageId === undefined) {
+        if (allMessages.length > 0) {
+          // If no parent specified, append to the latest leaf
+          effectiveParentMessageId = getLatestLeafId(allMessages) ?? null;
+        } else {
+          effectiveParentMessageId = null;
+        }
       }
     }
 
     // Load active SOP if one exists
     const { sopRun, sop } = loadActiveSOP(numChatId);
-
-    // Check if this is an initial SOP start command
-    const isSOPStart = isInitialSOPStart(message);
     
     let userMessageId: number | undefined;
 
@@ -409,9 +417,9 @@ export async function POST(request: NextRequest) {
                 for (const msg of streamData.messagesToSave) {
                     let savedToolMsg;
                     if (msg.role === 'assistant' && 'tool_calls' in msg && msg.tool_calls) {
-                        savedToolMsg = saveToolCallMessage(numChatId, msg.tool_calls, lastSavedMessageId!);
+                        savedToolMsg = saveToolCallMessage(numChatId, msg.tool_calls, lastSavedMessageId || undefined);
                     } else if (msg.role === 'tool' && 'tool_call_id' in msg && msg.tool_call_id) {
-                        savedToolMsg = saveToolResultMessage(numChatId, msg.tool_call_id, msg.content, streamData.name, streamData.metadata, lastSavedMessageId!);
+                        savedToolMsg = saveToolResultMessage(numChatId, msg.tool_call_id, msg.content, streamData.name, streamData.metadata, lastSavedMessageId || undefined);
                     }
                     
                     if (savedToolMsg) {
@@ -427,7 +435,7 @@ export async function POST(request: NextRequest) {
           
           // Save final assistant response
           if (fullResponse) {
-             saveMessage(numChatId, 'assistant', fullResponse, undefined, lastSavedMessageId!);
+             saveMessage(numChatId, 'assistant', fullResponse, undefined, lastSavedMessageId || undefined);
           }
 
           controller.close();
