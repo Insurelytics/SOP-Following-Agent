@@ -13,10 +13,6 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - MODEL=${MODEL}
     volumes:
-      - chatdb:/app/data
+      - ./data:/app/data
     restart: unless-stopped
-
-volumes:
-  chatdb:
-
 
