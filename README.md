@@ -27,6 +27,25 @@ npm run dev
 
 Visit `http://localhost:3000`
 
+## Running with Docker
+
+Build and run with plain Docker:
+
+```bash
+docker build -t sop-following-agent .
+docker run --rm -p 3001:3001 \
+  -e OPENAI_API_KEY=your_key_here \
+  -e MODEL=gpt-5-nano \
+  -v "$(pwd)/chat.db:/app/chat.db" \
+  sop-following-agent
+```
+
+Or use Docker Compose:
+
+```bash
+OPENAI_API_KEY=your_key_here MODEL=gpt-5-nano docker compose up --build
+```
+
 ## Project Structure
 
 - `/app` - Next.js app router pages and API routes
