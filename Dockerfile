@@ -23,9 +23,6 @@ ENV PORT=3001
 # Expose app port
 EXPOSE 3001
 
-# Ensure the SQLite database file exists (will be bind-mounted in most setups)
-VOLUME ["/app/chat.db"]
-
 # Start the production server
 CMD ["npm", "start"]
 

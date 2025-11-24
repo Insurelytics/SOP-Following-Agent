@@ -9,10 +9,11 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - DB_PATH=/app/data/chat.db
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - MODEL=${MODEL}
     volumes:
-      - chatdb:/app/chat.db
+      - chatdb:/app/data
     restart: unless-stopped
 
 volumes:
