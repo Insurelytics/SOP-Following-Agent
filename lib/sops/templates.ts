@@ -13,7 +13,7 @@ export const SOPManagementSOP: SOP = {
   id: 'sop-management',
   name: 'sop-management',
   displayName: 'SOP Management',
-  description: 'Manage SOPs for users',
+  description: 'Create ',
   version: '1.0.0',
 
   generalInstructions: 'You are a helpful assistant that creates and/or edits SOPs for users. Your job is to help the user create and/or edit SOPs for their workflows.',

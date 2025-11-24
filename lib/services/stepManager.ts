@@ -53,11 +53,37 @@ export async function determineNextStep(
     // get the last 3 messages from the history
     const last3Messages = history.slice(-3);
 
+    // Annotate user messages that had file uploads so the step manager can
+    // see when the user actually provided documents (without exposing contents).
+    const annotatedMessages = last3Messages.map((msg: any) => {
+      if (msg.role === 'user' && msg.file_attachments) {
+        try {
+          const attachments = JSON.parse(msg.file_attachments);
+          const fileCount = Array.isArray(attachments) ? attachments.length : 0;
+
+          if (fileCount > 0) {
+            const suffix = fileCount === 1 ? '' : 's';
+            const prefix = `[Uploaded ${fileCount} File${suffix}] `;
+            const originalContent = msg.content || '';
+
+            return {
+              ...msg,
+              content: `${prefix}${originalContent}`.trim(),
+            };
+          }
+        } catch (e) {
+          console.error('Error parsing file_attachments for step manager history:', e);
+        }
+      }
+
+      return msg;
+    });
+
     // Build the prompt
     const prompt = `Based on the conversation history and the complete SOP context, determine which step the workflow should transition to.
 
 Conversation History:
-${last3Messages.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
+${annotatedMessages.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
 
 Complete SOP:
 ${JSON.stringify(sop, null, 2)}
