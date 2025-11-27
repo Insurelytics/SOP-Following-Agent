@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { writeDocumentTool, displaySOPTool, overwriteSOPTool, createSOPTool, deleteSOPTool, DEFAULT_MODEL } from '@/lib/openai';
+import { writeDocumentTool, displaySOPTool, overwriteSOPTool, createSOPTool, deleteSOPTool, DEFAULT_MODEL, getSopManagementTools } from '@/lib/openai';
 import { saveMessage, getMessages, getChat, getActiveSOPRun, getSOP, saveToolCallMessage, saveToolResultMessage, updateSOPRunStep, getLastMessage, updateChatTitle } from '@/lib/db';
 import { createSystemPrompt, isInitialSOPStart } from '@/lib/services/prompt';
 import { handleChatStream } from '@/lib/services/chat-stream';
@@ -242,9 +242,11 @@ function saveChatMessages(
 
 /**
  * Gets the list of available tools
+ * Uses dynamic tool generation to inject actual SOP IDs from the database
  */
 function getAvailableTools() {
-  return [writeDocumentTool, displaySOPTool, overwriteSOPTool, createSOPTool, deleteSOPTool];
+  const sopTools = getSopManagementTools();
+  return [writeDocumentTool, ...sopTools];
 }
 
 /**

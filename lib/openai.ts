@@ -62,20 +62,21 @@ export const writeDocumentTool: ChatCompletionTool = {
 };
 
 /**
- * Display SOP to user tool for SOP management
+ * Display SOP to user tool for SOP management (template)
  * Retrieves and displays an existing SOP
+ * Use getDisplaySOPTool() to get a version with actual SOP IDs
  */
 export const displaySOPTool: ChatCompletionTool = {
   type: 'function',
   function: {
     name: 'display_sop_to_user',
-    description: 'Retrieves and displays an existing SOP to the user. This tool returns the complete SOP JSON object that you can then modify and pass to overwrite_sop. Use this first when you need to edit or review an existing SOP. Example: call with sopId "pdf-summary" to get the PDF Summary SOP structure, which you can then examine and modify for the user.',
+    description: 'Retrieves and displays an existing SOP to the user. This tool returns the complete SOP JSON object that you can then modify and pass to overwrite_sop. Use this first when you need to edit or review an existing SOP.',
     parameters: {
       type: 'object',
       properties: {
         sopId: {
           type: 'string',
-          description: 'The unique ID of the SOP to retrieve (e.g., "pdf-summary", "content-plan", "sop-management")',
+          description: 'The unique ID of the SOP to retrieve',
         },
       },
       required: ['sopId'],
@@ -128,26 +129,66 @@ export const createSOPTool: ChatCompletionTool = {
 };
 
 /**
- * Delete SOP tool for SOP management
+ * Delete SOP tool for SOP management (template)
  * Deletes a SOP from the system (prevents deletion of built-in SOPs)
+ * Use getDeleteSOPTool() to get a version with actual SOP IDs
  */
 export const deleteSOPTool: ChatCompletionTool = {
   type: 'function',
   function: {
     name: 'delete_sop',
-    description: 'Deletes a SOP from the system and cannot be undone. Built-in SOPs (pdf-summary, content-plan, sop-management) are protected and cannot be deleted. Only call this when the user explicitly requests deletion of a custom SOP they created. The tool will verify the SOP exists and is not protected before deleting.',
+    description: 'Deletes a SOP from the system and cannot be undone. Built-in SOPs are protected and cannot be deleted. Only call this when the user explicitly requests deletion of a custom SOP they created.',
     parameters: {
       type: 'object',
       properties: {
         sopId: {
           type: 'string',
-          description: 'The ID of the SOP to delete (e.g., "pdf-summary", "content-plan", or a custom SOP ID). Cannot delete built-in SOPs.',
+          description: 'The ID of the SOP to delete',
         },
       },
       required: ['sopId'],
     },
   },
 };
+
+// ============================================================================
+// Dynamic Tool Generation (with actual SOP IDs from database)
+// ============================================================================
+
+/**
+ * Creates a tool definition with dynamic SOP ID descriptions
+ * Injects real SOP IDs from the database into tool descriptions
+ */
+export function getSopManagementTools(): ChatCompletionTool[] {
+  let displaySOPToolDynamic = JSON.parse(JSON.stringify(displaySOPTool)) as ChatCompletionTool;
+  let deleteSOPToolDynamic = JSON.parse(JSON.stringify(deleteSOPTool)) as ChatCompletionTool;
+
+  try {
+    const { generateDynamicToolDescriptions } = require('@/lib/services/tools');
+    const descriptions = generateDynamicToolDescriptions();
+    
+    // Update descriptions with actual SOP IDs
+    displaySOPToolDynamic.function.description = descriptions.displaySOPDescription;
+    deleteSOPToolDynamic.function.description = descriptions.deleteSOPDescription;
+  } catch (error) {
+    console.warn('Could not generate dynamic tool descriptions, using defaults:', error);
+  }
+
+  return [displaySOPToolDynamic, deleteSOPToolDynamic];
+}
+
+/**
+ * Gets all SOP management tools with dynamic descriptions
+ * This includes: display_sop_to_user, overwrite_sop, create_sop, delete_sop
+ */
+export function getAllSopManagementTools(): ChatCompletionTool[] {
+  const sopTools = getSopManagementTools();
+  return [
+    ...sopTools,
+    overwriteSOPTool,
+    createSOPTool,
+  ];
+}
 
 // ============================================================================
 // Tool Implementations

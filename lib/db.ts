@@ -307,10 +307,22 @@ export function saveMessage(
   parentMessageId?: number
 ): Message {
   const fileAttachmentsJson = fileAttachments ? JSON.stringify(fileAttachments) : null;
+  
+  // Validate that parent message belongs to the same chat
+  let validParentId: number | null = null;
+  if (parentMessageId) {
+    const parentMsg = db.prepare('SELECT chat_id FROM messages WHERE id = ?').get(parentMessageId) as { chat_id: number } | undefined;
+    if (parentMsg && parentMsg.chat_id === chatId) {
+      validParentId = parentMessageId;
+    } else if (parentMsg) {
+      console.error(`Parent message ${parentMessageId} belongs to chat ${parentMsg.chat_id}, not chat ${chatId}. Ignoring parent.`);
+    }
+  }
+  
   const stmt = db.prepare(
     'INSERT INTO messages (chat_id, role, content, file_attachments, parent_message_id) VALUES (?, ?, ?, ?, ?)'
   );
-  const result = stmt.run(chatId, role, content, fileAttachmentsJson, parentMessageId || null);
+  const result = stmt.run(chatId, role, content, fileAttachmentsJson, validParentId || null);
   
   const selectStmt = db.prepare('SELECT * FROM messages WHERE id = ?');
   return selectStmt.get(result.lastInsertRowid) as Message;
@@ -338,11 +350,22 @@ export function saveToolCallMessage(
   toolCalls: any[],
   parentMessageId?: number
 ): Message {
+  // Validate that parent message belongs to the same chat
+  let validParentId: number | null = null;
+  if (parentMessageId) {
+    const parentMsg = db.prepare('SELECT chat_id FROM messages WHERE id = ?').get(parentMessageId) as { chat_id: number } | undefined;
+    if (parentMsg && parentMsg.chat_id === chatId) {
+      validParentId = parentMessageId;
+    } else if (parentMsg) {
+      console.error(`Parent message ${parentMessageId} belongs to chat ${parentMsg.chat_id}, not chat ${chatId}. Ignoring parent.`);
+    }
+  }
+  
   const stmt = db.prepare(
     'INSERT INTO messages (chat_id, role, content, tool_calls, parent_message_id) VALUES (?, ?, ?, ?, ?)'
   );
   // Use empty string for content since tool calls are stored separately
-  const result = stmt.run(chatId, 'assistant', '', JSON.stringify(toolCalls), parentMessageId || null);
+  const result = stmt.run(chatId, 'assistant', '', JSON.stringify(toolCalls), validParentId || null);
   
   const selectStmt = db.prepare('SELECT * FROM messages WHERE id = ?');
   return selectStmt.get(result.lastInsertRowid) as Message;
@@ -359,6 +382,17 @@ export function saveToolResultMessage(
   metadata?: Record<string, any>,
   parentMessageId?: number
 ): Message {
+  // Validate that parent message belongs to the same chat
+  let validParentId: number | null = null;
+  if (parentMessageId) {
+    const parentMsg = db.prepare('SELECT chat_id FROM messages WHERE id = ?').get(parentMessageId) as { chat_id: number } | undefined;
+    if (parentMsg && parentMsg.chat_id === chatId) {
+      validParentId = parentMessageId;
+    } else if (parentMsg) {
+      console.error(`Parent message ${parentMessageId} belongs to chat ${parentMsg.chat_id}, not chat ${chatId}. Ignoring parent.`);
+    }
+  }
+  
   const stmt = db.prepare(
     'INSERT INTO messages (chat_id, role, content, tool_call_id, tool_name, metadata, parent_message_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
   );
@@ -369,7 +403,7 @@ export function saveToolResultMessage(
     toolCallId,
     toolName || null,
     metadata ? JSON.stringify(metadata) : null,
-    parentMessageId || null
+    validParentId || null
   );
   
   const selectStmt = db.prepare('SELECT * FROM messages WHERE id = ?');

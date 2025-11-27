@@ -4,14 +4,82 @@
  */
 
 import { executeTool as executeToolFromOpenAI } from '@/lib/openai';
-import { updateSOPRunStep, saveAIGeneratedDocument } from '@/lib/db';
+import { updateSOPRunStep, saveAIGeneratedDocument, getAllSOPs } from '@/lib/db';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import type { SOP, SOPStep } from '@/lib/types/sop';
+import type { ChatCompletionTool } from 'openai/resources/chat/completions';
 
 /**
  * Default tools provided to non-SOP chats
  */
 export const DEFAULT_TOOLS: string[] = [];
+
+/**
+ * Built-in SOP IDs that cannot be deleted
+ * These are the SOPs that are loaded by default and should be protected
+ */
+export const BUILT_IN_SOPS = ['pdf-summary', 'content-plan', 'sop-management'];
+
+/**
+ * Generates descriptions for SOP management tools with actual SOP IDs from the database
+ * This function fetches real SOP IDs and injects them into tool descriptions
+ * so the model knows which IDs actually exist in the system
+ * 
+ * It's important to note that "built-in SOPs" are those defined in getDefaultSOPs()
+ * and loaded during database initialization. The actual built-in SOPs may differ
+ * from BUILT_IN_SOPS constant if not all are loaded (e.g., pdf-summary).
+ */
+export function generateDynamicToolDescriptions(): {
+  displaySOPDescription: string;
+  deleteSOPDescription: string;
+  sopExamples: string;
+  builtInSOPs: string[];
+  customSOPs: string[];
+  allSOPs: string[];
+} {
+  try {
+    const allSOPs = getAllSOPs();
+    const sopIds = allSOPs.map(sop => sop.id);
+    
+    // Determine which SOPs are actually built-in by checking against the constant
+    const builtInSOPs = sopIds.filter(id => BUILT_IN_SOPS.includes(id));
+    const customSOPs = sopIds.filter(id => !BUILT_IN_SOPS.includes(id));
+    
+    // Build a formatted string showing all available SOPs
+    const sopExamplesLines = [];
+    if (builtInSOPs.length > 0) {
+      sopExamplesLines.push(`Built-in SOPs: ${builtInSOPs.join(', ')}`);
+    }
+    if (customSOPs.length > 0) {
+      sopExamplesLines.push(`Custom SOPs: ${customSOPs.join(', ')}`);
+    }
+    const sopExamples = sopExamplesLines.join('; ') || 'No SOPs found in database';
+
+    const displaySOPDescription = `Retrieves and displays an existing SOP to the user. This tool returns the complete SOP JSON object that you can then modify and pass to overwrite_sop. Use this first when you need to edit or review an existing SOP. Real SOP IDs in the system: ${sopExamples}`;
+
+    const deleteSOPDescription = `Deletes a SOP from the system and cannot be undone. Built-in SOPs (${builtInSOPs.join(', ') || 'none'}) are protected and cannot be deleted. Only custom user-created SOPs can be deleted. Custom SOPs available for deletion: ${customSOPs.length > 0 ? customSOPs.join(', ') : 'none currently available'}. Verify the SOP ID is correct before deletion, as it cannot be undone. Real SOP IDs in the system: ${sopExamples}`;
+
+    return {
+      displaySOPDescription,
+      deleteSOPDescription,
+      sopExamples,
+      builtInSOPs,
+      customSOPs,
+      allSOPs: sopIds,
+    };
+  } catch (error) {
+    console.error('Error generating dynamic tool descriptions:', error);
+    // Fallback to default hardcoded examples if database is unavailable
+    return {
+      displaySOPDescription: 'Retrieves and displays an existing SOP to the user. Example SOP IDs: "pdf-summary", "content-plan", "sop-management"',
+      deleteSOPDescription: 'Deletes a SOP from the system. Cannot delete built-in SOPs (pdf-summary, content-plan, sop-management).',
+      sopExamples: 'pdf-summary, content-plan, sop-management',
+      builtInSOPs: BUILT_IN_SOPS,
+      customSOPs: [],
+      allSOPs: BUILT_IN_SOPS,
+    };
+  }
+}
 
 /**
  * Gets the list of tools available for a given context
@@ -313,12 +381,9 @@ function executeCreateSOPTool(newSOPString: string, context?: ToolExecutionConte
  */
 function executeDeleteSOPTool(sopId: string): { result: string; metadata: Record<string, any> } {
   try {
-    // List of built-in SOPs that cannot be deleted
-    const builtInSOPs = ['pdf-summary', 'content-plan', 'sop-management'];
-
-    if (builtInSOPs.includes(sopId)) {
+    if (BUILT_IN_SOPS.includes(sopId)) {
       return {
-        result: `Error: Cannot delete built-in SOP "${sopId}". Built-in SOPs (pdf-summary, content-plan, sop-management) are protected and cannot be deleted. Only custom user-created SOPs can be deleted.`,
+        result: `Error: Cannot delete built-in SOP "${sopId}". Built-in SOPs (${BUILT_IN_SOPS.join(', ')}) are protected and cannot be deleted. Only custom user-created SOPs can be deleted.`,
         metadata: {},
       };
     }
