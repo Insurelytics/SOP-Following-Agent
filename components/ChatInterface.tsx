@@ -305,16 +305,35 @@ export default function ChatInterface({
                 } else {
                   // Tool has finished executing. Transition from the placeholder
                   // to the permanent tool messages by refreshing the message list.
+                  console.log('[ChatInterface] Tool completion detected:', { toolName: data.name });
                   setIsThinking(false);
                   setCurrentToolCall(null);
 
                   // Reload messages so the newly-saved tool messages appear
                   // immediately in the history while the assistant response
                   // continues streaming.
+                  // Do this optimistically without clearing the chat content
+                  console.log('[ChatInterface] Fetching updated messages after tool completion...');
                   fetch(`/api/messages?chatId=${chatId}`)
                     .then((res) => res.json())
                     .then((updatedMessages) => {
+                      console.log('[ChatInterface] Received updated messages:', {
+                        count: updatedMessages.length,
+                        messageIds: updatedMessages.map((m: any) => m.id),
+                        currentLeafId
+                      });
                       setMessages(updatedMessages);
+
+                      // Ensure currentLeafId always points to a real message after we
+                      // refresh history for tool calls. If the current leaf is a
+                      // temporary client ID (e.g. Date.now()) that doesn't exist in
+                      // the reloaded list, fall back to the latest leaf in the tree.
+                      const latestLeaf = getLatestLeafId(updatedMessages);
+                      setCurrentLeafId((prev) => {
+                        if (!prev) return latestLeaf || null;
+                        const exists = updatedMessages.some((m: any) => m.id === prev);
+                        return exists ? prev : (latestLeaf || prev || null);
+                      });
                     })
                     .catch((err) => {
                       console.error('Error reloading messages after tool completion:', err);

@@ -112,10 +112,10 @@ function extractPartialHtmlFromWriteDocumentArgs(args: string | undefined): { ht
 }
 
 /**
- * Handles the streaming response from the initial API call
- * Yields content and tool calls as they arrive
+ * Handles a single streaming completion with tools enabled.
+ * Yields content and tool calls as they arrive.
  */
-export async function* streamInitialCompletion(
+export async function* streamCompletionWithTools(
   model: string,
   messages: ChatCompletionMessageParam[],
   tools: any[]
@@ -138,7 +138,8 @@ export async function* streamInitialCompletion(
   let hasLoggedFirstToolCall = false;
 
   for await (const chunk of completion) {
-    const delta = chunk.choices[0]?.delta;
+    const choice = chunk.choices[0];
+    const delta = choice?.delta;
 
     // Handle content
     if (delta?.content) {
@@ -177,10 +178,10 @@ export async function* streamInitialCompletion(
     }
 
     // Check for completion
-    if (chunk.choices[0]?.finish_reason) {
+    if (choice?.finish_reason) {
       yield {
         type: 'done',
-        finishReason: chunk.choices[0].finish_reason,
+        finishReason: choice.finish_reason,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       };
       break;
@@ -216,103 +217,105 @@ export async function* streamFinalCompletion(
  */
 export async function* handleChatStream(
   model: string,
-  messages: ChatCompletionMessageParam[],
+  initialMessages: ChatCompletionMessageParam[],
   tools: any[],
   toolContext?: ToolExecutionContext
 ): AsyncGenerator<StreamData> {
-  let fullResponse = '';
-  let toolsWereExecuted = false;
-  let conversationMessages = [...messages];
+  const MAX_TOOL_ROUNDS = 3;
+  let conversationMessages = [...initialMessages];
   let toolStartEmitted = false;
   let lastDocumentPreview: string | null = null;
 
-  // Initial completion
-  for await (const chunk of streamInitialCompletion(model, conversationMessages, tools)) {
-    if (chunk.type === 'content') {
-      fullResponse += chunk.content || '';
-      yield {
-        type: 'content',
-        content: chunk.content,
-      };
-    }
+  // Allow multiple rounds of tool calls before a final user-facing answer.
+  for (let round = 1; round <= MAX_TOOL_ROUNDS; round++) {
+    let lastRoundToolCalls: ToolCall[] | undefined;
+    let lastRoundFinishReason: string | undefined;
 
-    // As soon as the model starts emitting tool calls, surface the selected tool
-    // to the client and, for write_document, stream a best-effort HTML preview.
-    if (chunk.type === 'toolCalls' && chunk.toolCalls && chunk.toolCalls.length > 0) {
-      const firstToolCall = chunk.toolCalls[0];
-
-      if (!toolStartEmitted) {
-        toolStartEmitted = true;
+    for await (const chunk of streamCompletionWithTools(
+      model,
+      conversationMessages,
+      tools
+    )) {
+      if (chunk.type === 'content' && chunk.content) {
+        // Stream assistant content as it arrives
         yield {
-          type: 'tool',
-          name: firstToolCall.function.name,
-          args: firstToolCall.function.arguments,
+          type: 'content',
+          content: chunk.content,
         };
       }
 
-      // Stream partial document HTML for write_document tool calls
-      if (firstToolCall.function.name === 'write_document') {
-        const preview = extractPartialHtmlFromWriteDocumentArgs(firstToolCall.function.arguments);
-        if (preview && preview.html && preview.html !== lastDocumentPreview) {
-          lastDocumentPreview = preview.html;
+      // As soon as the model starts emitting tool calls, surface the selected tool
+      // to the client and, for write_document, stream a best-effort HTML preview.
+      if (chunk.type === 'toolCalls' && chunk.toolCalls && chunk.toolCalls.length > 0) {
+        lastRoundToolCalls = chunk.toolCalls;
+        const firstToolCall = chunk.toolCalls[0];
 
-          yield {
-            type: 'document_stream',
-            name: firstToolCall.function.name,
-            documentName: preview.documentName,
-            html: preview.html,
-          };
-        }
-      }
-    }
-
-    if (chunk.type === 'done') {
-      // If tools were called, execute them
-      if (chunk.finishReason === 'tool_calls' && chunk.toolCalls && chunk.toolCalls.length > 0) {
-        toolsWereExecuted = true;
-
-        // Execute tools and send results
-        for (const toolCall of chunk.toolCalls) {
-          const executionResult = executeSingleTool(toolCall, toolContext);
-
-          // Convert tool results to messages that should be saved to database
-          const toolMessages = convertToolResultsToMessages(toolCall, executionResult);
-
+        if (!toolStartEmitted) {
+          toolStartEmitted = true;
           yield {
             type: 'tool',
-            name: toolCall.function.name,
-            args: executionResult.args,
-            result: executionResult.result,
-            metadata: executionResult.metadata,
-            messagesToSave: toolMessages,
+            name: firstToolCall.function.name,
+            args: firstToolCall.function.arguments,
           };
-
-          // Add tool results to conversation
-          conversationMessages.push(...toolMessages);
         }
 
-        // Get final response after tool execution
-        fullResponse = '';
-        for await (const content of streamFinalCompletion(model, conversationMessages)) {
-          fullResponse += content;
-          yield {
-            type: 'content',
-            content,
-          };
+        // Stream partial document HTML for write_document tool calls
+        if (firstToolCall.function.name === 'write_document') {
+          const preview = extractPartialHtmlFromWriteDocumentArgs(firstToolCall.function.arguments);
+          if (preview && preview.html && preview.html !== lastDocumentPreview) {
+            lastDocumentPreview = preview.html;
+
+            yield {
+              type: 'document_stream',
+              name: firstToolCall.function.name,
+              documentName: preview.documentName,
+              html: preview.html,
+            };
+          }
         }
       }
 
-      yield {
-        type: 'done',
-      };
-      break;
+      if (chunk.type === 'done') {
+        lastRoundFinishReason = chunk.finishReason;
+        if (chunk.toolCalls && chunk.toolCalls.length > 0) {
+          lastRoundToolCalls = chunk.toolCalls;
+        }
+        break;
+      }
     }
+
+    // If the model asked to call tools, execute them and loop for another round.
+    if (lastRoundFinishReason === 'tool_calls' && lastRoundToolCalls && lastRoundToolCalls.length > 0) {
+      for (const toolCall of lastRoundToolCalls) {
+        const executionResult = executeSingleTool(toolCall, toolContext);
+
+        // Convert tool results to messages that should be saved to database
+        const toolMessages = convertToolResultsToMessages(toolCall, executionResult);
+
+        yield {
+          type: 'tool',
+          name: toolCall.function.name,
+          args: executionResult.args,
+          result: executionResult.result,
+          metadata: executionResult.metadata,
+          messagesToSave: toolMessages,
+        };
+
+        // Add tool results to conversation so the model can see them next round
+        conversationMessages.push(...toolMessages);
+      }
+
+      // Continue outer loop for another model call with updated conversationMessages
+      continue;
+    }
+
+    // No more tool calls requested: treat this round's content as the final answer.
+    break;
   }
 
-  return {
-    fullResponse,
-    toolsWereExecuted,
-    conversationMessages,
+  // Signal completion to the caller.
+  yield {
+    type: 'done',
   };
 }
 

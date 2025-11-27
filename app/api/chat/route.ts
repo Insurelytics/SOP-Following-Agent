@@ -312,7 +312,7 @@ export async function POST(request: NextRequest) {
 
     // Save user message only if it's not a system command
     if (!isSOPStart) {
-      const savedMsg = saveMessage(numChatId, 'user', message, files, effectiveParentMessageId);
+      const savedMsg = saveMessage(numChatId, 'user', message, files, effectiveParentMessageId ?? undefined);
       userMessageId = savedMsg.id;
       // Update effective parent to be this new user message for subsequent AI responses
       effectiveParentMessageId = userMessageId;
@@ -323,17 +323,7 @@ export async function POST(request: NextRequest) {
     const history = isSOPStart ? [] : getThread(userMessageId!, [...allMessages, { id: userMessageId!, chat_id: numChatId, role: 'user', content: message, parent_message_id: parentMessageId === undefined ? getLatestLeafId(allMessages) : parentMessageId, created_at: new Date().toISOString() } as any]);
     
     // If we just saved the message, we should actually re-fetch or construct correctly.
-    // Better: We have 'savedMsg'. We can just append it to the thread if we found one.
-    // Actually, let's just re-fetch all messages to be safe and clean, although less efficient?
-    // Or just trust `getThread` works if we pass the updated list.
-    // The `history` variable is what we pass to the AI.
-    // If isSOPStart, we pass empty history? Or do we need history? 
-    // Original code: const history = getMessages(numChatId);
-    // If isSOPStart, it might assume empty or existing history.
-    
-    // Let's stick to: if !isSOPStart, we have a user message.
-    // We need the thread ending at that user message.
-    // We can re-fetch all messages including the new one.
+
     const updatedAllMessages = getMessages(numChatId);
     const thread = userMessageId ? getThread(userMessageId, updatedAllMessages) : updatedAllMessages; // fallback if no user msg (SOP start)
 
