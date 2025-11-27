@@ -1,45 +1,5 @@
 import { Message } from '@/lib/db';
 
-export interface MessageNode extends Message {
-  children: MessageNode[];
-}
-
-/**
- * Constructs a tree of messages from a flat list
- */
-export function buildMessageTree(messages: Message[]): MessageNode[] {
-  const messageMap = new Map<number, MessageNode>();
-  const roots: MessageNode[] = [];
-
-  // First pass: create nodes
-  messages.forEach(msg => {
-    messageMap.set(msg.id, { ...msg, children: [] });
-  });
-
-  // Second pass: link children to parents
-  messages.forEach(msg => {
-    const node = messageMap.get(msg.id)!;
-    if (msg.parent_message_id) {
-      const parent = messageMap.get(msg.parent_message_id);
-      if (parent) {
-        parent.children.push(node);
-      } else {
-        // If parent not found (orphan), treat as root
-        roots.push(node);
-      }
-    } else {
-      roots.push(node);
-    }
-  });
-  
-  // Sort children by creation time
-  messageMap.forEach(node => {
-      node.children.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-  });
-
-  return roots.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-}
-
 /**
  * Gets the full thread (path) from root to a specific leaf message
  */

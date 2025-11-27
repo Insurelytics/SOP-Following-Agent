@@ -195,16 +195,6 @@ export function getAllSopManagementTools(): ChatCompletionTool[] {
 // ============================================================================
 
 /**
- * Executes the add tool
- * @param a - First number
- * @param b - Second number
- * @returns The sum of a and b
- */
-function executeAddTool(a: number, b: number): number {
-  return a + b;
-}
-
-/**
  * Dispatcher to execute any tool by name
  * @param toolName - Name of the tool to execute
  * @param args - Arguments to pass to the tool
@@ -212,12 +202,9 @@ function executeAddTool(a: number, b: number): number {
  * @throws Error if tool name is unknown
  */
 export function executeTool(toolName: string, args: any): any {
-  switch (toolName) {
-    case 'add':
-      return executeAddTool(args.a, args.b);
-    default:
-      throw new Error(`Unknown tool: ${toolName}`);
-  }
+  // All tool implementations are in lib/services/tools.ts
+  // This function is kept for potential future simple tools
+  throw new Error(`Unknown tool: ${toolName}`);
 }
 
 // ============================================================================

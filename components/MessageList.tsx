@@ -59,18 +59,9 @@ export default function MessageList({
   // Compute the current thread based on the leaf ID
   const thread = useMemo(() => {
     if (!currentLeafId) {
-      console.log('[MessageList] currentLeafId is null/undefined, returning empty thread');
       return [];
     }
-    const computedThread = getThread(currentLeafId, messages);
-    console.log('[MessageList] Computed thread:', {
-      currentLeafId,
-      threadLength: computedThread.length,
-      totalMessages: messages.length,
-      messageIds: messages.map(m => m.id),
-      threadMessageIds: computedThread.map(m => m.id)
-    });
-    return computedThread;
+    return getThread(currentLeafId, messages);
   }, [currentLeafId, messages]);
 
   // Scroll to bottom when first entering a chat or when messages update
@@ -117,15 +108,12 @@ export default function MessageList({
   return (
     <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 pb-24 bg-background">
       {thread.length === 0 && !streamingMessage ? (
-        <>
-          {console.log('[MessageList] Showing empty state:', { threadLength: thread.length, streamingMessage: !!streamingMessage, currentLeafId })}
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center text-foreground-muted">
-              <p className="text-lg mb-2">Start a conversation</p>
-              <p className="text-sm">Send a message to begin chatting with AI</p>
-            </div>
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center text-foreground-muted">
+            <p className="text-lg mb-2">Start a conversation</p>
+            <p className="text-sm">Send a message to begin chatting with AI</p>
           </div>
-        </>
+        </div>
       ) : (
         <>
           {thread.map((message, index) => {

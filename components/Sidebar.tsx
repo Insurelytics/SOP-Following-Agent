@@ -1,6 +1,5 @@
 'use client';
 
-import { useMemo } from 'react';
 import { Chat } from '@/lib/db';
 import type { SOP } from '@/lib/types/sop';
 import ThemePicker from './ThemePicker';

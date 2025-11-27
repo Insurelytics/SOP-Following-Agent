@@ -45,6 +45,35 @@ export default function ChatInterface({
   const lastProcessedMessageIdRef = useRef<number | null>(null);
   const lastProcessedSOPDraftIdRef = useRef<number | null>(null);
   const initialMessagesCountRef = useRef<number>(0);
+  const messagesFetchControllerRef = useRef<AbortController | null>(null);
+
+  /**
+   * Fetches messages for the current chat, cancelling any in-flight request.
+   * Returns the fetched messages or null if the request was aborted.
+   */
+  const fetchMessages = async (targetChatId: number): Promise<Message[] | null> => {
+    // Cancel any in-flight request
+    if (messagesFetchControllerRef.current) {
+      messagesFetchControllerRef.current.abort();
+    }
+    
+    const controller = new AbortController();
+    messagesFetchControllerRef.current = controller;
+    
+    try {
+      const response = await fetch(`/api/messages?chatId=${targetChatId}`, {
+        signal: controller.signal,
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Request was cancelled, ignore
+        return null;
+      }
+      throw error;
+    }
+  };
 
   // Load messages when chat changes
   // Note: handleSendMessage and currentChat?.sop are excluded from deps as they would cause infinite loops
@@ -60,9 +89,10 @@ export default function ChatInterface({
     // Reset tracking refs for new chat
     lastProcessedMessageIdRef.current = null;
     
-    fetch(`/api/messages?chatId=${chatId}`)
-      .then((res) => res.json())
+    fetchMessages(chatId)
       .then((data) => {
+        if (data === null) return; // Request was aborted
+        
         setMessages(data);
         // Initialize current leaf to the latest one if not set
         const latestLeaf = getLatestLeafId(data);
@@ -305,23 +335,16 @@ export default function ChatInterface({
                 } else {
                   // Tool has finished executing. Transition from the placeholder
                   // to the permanent tool messages by refreshing the message list.
-                  console.log('[ChatInterface] Tool completion detected:', { toolName: data.name });
                   setIsThinking(false);
                   setCurrentToolCall(null);
 
                   // Reload messages so the newly-saved tool messages appear
                   // immediately in the history while the assistant response
                   // continues streaming.
-                  // Do this optimistically without clearing the chat content
-                  console.log('[ChatInterface] Fetching updated messages after tool completion...');
-                  fetch(`/api/messages?chatId=${chatId}`)
-                    .then((res) => res.json())
+                  fetchMessages(chatId)
                     .then((updatedMessages) => {
-                      console.log('[ChatInterface] Received updated messages:', {
-                        count: updatedMessages.length,
-                        messageIds: updatedMessages.map((m: any) => m.id),
-                        currentLeafId
-                      });
+                      if (updatedMessages === null) return; // Request was aborted
+                      
                       setMessages(updatedMessages);
 
                       // Ensure currentLeafId always points to a real message after we
@@ -331,7 +354,7 @@ export default function ChatInterface({
                       const latestLeaf = getLatestLeafId(updatedMessages);
                       setCurrentLeafId((prev) => {
                         if (!prev) return latestLeaf || null;
-                        const exists = updatedMessages.some((m: any) => m.id === prev);
+                        const exists = updatedMessages.some((m: Message) => m.id === prev);
                         return exists ? prev : (latestLeaf || prev || null);
                       });
                     })
@@ -364,15 +387,16 @@ export default function ChatInterface({
         }
       }
 
-      // Reload messages to get the saved version
-      const messagesResponse = await fetch(`/api/messages?chatId=${chatId}`);
-      const updatedMessages = await messagesResponse.json();
-      setMessages(updatedMessages);
-      
-      // Update current leaf to the latest message in the updated list
-      // This ensures we are looking at the tip of the newly created branch
-      const newLeaf = getLatestLeafId(updatedMessages);
-      if (newLeaf) setCurrentLeafId(newLeaf);
+      // Reload messages to get the saved version (this will cancel any in-flight tool completion fetches)
+      const updatedMessages = await fetchMessages(chatId);
+      if (updatedMessages !== null) {
+        setMessages(updatedMessages);
+        
+        // Update current leaf to the latest message in the updated list
+        // This ensures we are looking at the tip of the newly created branch
+        const newLeaf = getLatestLeafId(updatedMessages);
+        if (newLeaf) setCurrentLeafId(newLeaf);
+      }
 
       setStreamingMessage('');
       setCurrentToolCall(null);

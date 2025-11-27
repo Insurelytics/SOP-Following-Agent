@@ -196,51 +196,6 @@ async function determineAndUpdateStep(
 }
 
 /**
- * Saves tool-related messages to the database
- */
-function saveChatMessages(
-  numChatId: number,
-  streamData: any,
-  fullResponse: string,
-  parentMessageId: number
-) {
-  // Save tool messages to database when tools are executed
-  if (streamData.type === 'tool' && streamData.messagesToSave) {
-    for (const msg of streamData.messagesToSave) {
-      if (msg.role === 'assistant' && 'tool_calls' in msg && msg.tool_calls) {
-        saveToolCallMessage(numChatId, msg.tool_calls, parentMessageId);
-      } else if (msg.role === 'tool' && 'tool_call_id' in msg && msg.tool_call_id) {
-        // Tool results typically follow the assistant message that called them
-        // But here we are just linearizing for storage. Ideally tool result parent is the tool call message.
-        // For now, let's assume sequential for tool chains in this function is tricky without tracking IDs.
-        // However, saveToolResultMessage appends to the list.
-        // If we want strict tree, we need the ID of the assistant message that just got saved.
-        // But `saveToolCallMessage` returns the message.
-        
-        // NOTE: This helper is simplifying things. In a real tree, we'd need to chain these IDs.
-        // For now, we'll trust that tool chains are linear segments. 
-        // We can use the parentMessageId passed in (which is the user message) for the first tool call,
-        // but subsequent messages need to chain.
-        // Since `streamData.messagesToSave` is an array, we should chain them here locally?
-        // Or just link all to the user message? Linking all to user message makes them siblings.
-        // We probably want them to be sequential.
-        
-        // Let's just save them. The `saveMessage` in db doesn't enforce unique parents for linear history yet?
-        // No, parent_message_id logic means one parent.
-        // So we need to chain them.
-        
-        // Refactoring this helper to track the "last saved message ID"
-      }
-    }
-  }
-
-  // Save response when stream is done
-  if (streamData.type === 'done' && fullResponse) {
-    saveMessage(numChatId, 'assistant', fullResponse, undefined, parentMessageId);
-  }
-}
-
-/**
  * Gets the list of available tools
  * Uses dynamic tool generation to inject actual SOP IDs from the database
  */
